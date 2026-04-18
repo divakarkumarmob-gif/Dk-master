@@ -1,0 +1,6 @@
+{
+  "name": "NEET Prep Master",
+  "description": "Comprehensive NEET preparation app with daily tests, major assessments, AI doubt solver, and performance analytics. Optimized for offline use and personalized study plans.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": []
+}
