@@ -31,11 +31,13 @@ jobs:
         run: npm run build
 
       - name: Install Capacitor
-        run: |
-          npm install @capacitor/core @capacitor/cli
+        run: npm install @capacitor/core @capacitor/cli
 
       - name: Init Capacitor
         run: npx cap init myapp com.example.app --web-dir=dist
+
+      - name: Install Android platform
+        run: npm install @capacitor/android
 
       - name: Add Android
         run: npx cap add android
