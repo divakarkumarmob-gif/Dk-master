@@ -34,27 +34,26 @@ export const AuthScreen: React.FC = () => {
     if (!email) { setError('Email is required'); return; }
     setLoading(true);
     setError('');
-    try {
-      const response = await fetch('/api/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      const data = await response.json();
-      if (data.success) {
-        setMessage(data.message);
-        if (data.dev && data.code) {
-           console.log("DEV MODE OTP:", data.code);
-           // Auto-set for easier testing in dev mode
-           setOtp(data.code);
-        }
-        setRegStep('OTP');
-      } else {
-        setError(data.error);
+  try {
+    const response = await fetch('/api/auth/send-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await response.json();
+    if (data.success) {
+      setMessage(data.message);
+      if (data.dev && data.code) {
+         console.log("DEV MODE OTP:", data.code);
+         setOtp(data.code);
       }
-    } catch (err) {
-      setError('Connection failure. Check internet.');
+      setRegStep('OTP');
+    } else {
+      setError(data.error || 'Failed to send OTP.');
     }
+  } catch (err) {
+    setError('Network error. Please try again later.');
+  }
     setLoading(false);
   };
 

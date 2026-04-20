@@ -51,14 +51,14 @@ app.post('/api/auth/send-otp', async (req, res) => {
 
   try {
     await transporter.sendMail({
-      from: `"NEET Prep Pro" <${process.env.GMAIL_USER}>`,
+      from: `"StudyMaster" <${process.env.GMAIL_USER}>`,
       to: email,
-      subject: 'Verification Code for NEET Prep Pro',
+      subject: 'Verification Code for StudyMaster',
       text: `Your verification code is: ${code}. It expires in 10 minutes.`,
       html: `
         <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px; max-width: 400px; margin: auto; text-align: center;">
-          <h2 style="color: #4CAF50;">Verify Your Gmail</h2>
-          <p>Welcome to NEET Prep Pro! Use the code below to verify your account:</p>
+          <h2 style="color: #0ea5e9;">Verify Your Gmail</h2>
+          <p>Welcome to StudyMaster! Use the code below to verify your account:</p>
           <div style="font-size: 32px; font-weight: bold; letter-spacing: 5px; padding: 15px; background: #f8f9fa; border-radius: 8px; margin: 20px 0;">
             ${code}
           </div>
@@ -67,9 +67,14 @@ app.post('/api/auth/send-otp', async (req, res) => {
       `
     });
     res.json({ success: true, message: 'OTP has been sent to your Gmail.' });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Mail Error:', error);
-    res.status(500).json({ error: 'Failed to send OTP email.' });
+    if (error.responseCode === 535) {
+      return res.status(401).json({ 
+        error: 'Invalid Gmail Login. Please use an "App Password" instead of your regular password in Settings -> Secrets.' 
+      });
+    }
+    res.status(500).json({ error: 'Mail server error. Check your GMAIL_USER and GMAIL_PASS in Settings -> Secrets.' });
   }
 });
 
