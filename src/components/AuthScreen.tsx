@@ -115,20 +115,20 @@ export const AuthScreen: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-slate-900 text-white font-sans">
+    <div className="min-h-screen flex items-center justify-center p-6 bg-[#F5F5F0] text-[#2D2D2A] font-sans">
       <motion.div 
         initial={{ opacity: 0, y: 20 }} 
         animate={{ opacity: 1, y: 0 }} 
-        className="w-full max-w-sm bg-slate-800/50 backdrop-blur-xl p-8 rounded-3xl border border-slate-700/50 shadow-2xl"
+        className="w-full max-w-sm bg-white p-8 rounded-3xl border border-black/5 shadow-2xl"
       >
         <div className="text-center mb-8">
-           <div className="w-16 h-16 bg-blue-600/20 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-500/30">
-              <Sparkles className="text-blue-400" size={32} />
+           <div className="w-16 h-16 bg-[#5A5A40]/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-[#5A5A40]/20">
+              <Sparkles className="text-[#5A5A40]" size={32} />
            </div>
-           <h2 className="text-2xl font-black tracking-tight text-white">
-             {isLogin ? 'Welcome Back' : 'Join NEET Prep'}
+           <h2 className="text-2xl font-black tracking-tight text-[#2D2D2A]">
+             {isLogin ? 'Welcome Back' : 'Join StudyMaster'}
            </h2>
-           <p className="text-slate-400 text-xs mt-1">
+           <p className="text-[#7E7E7A] text-xs mt-1">
              {isLogin ? 'Log in to continue your journey' : 'Secure your registration with OTP'}
            </p>
         </div>
@@ -151,24 +151,24 @@ export const AuthScreen: React.FC = () => {
                     placeholder="Gmail Address" 
                     value={email} 
                     onChange={(e) => setEmail(e.target.value)} 
-                    className="w-full pl-12 p-4 rounded-2xl bg-slate-900/50 border border-slate-700 focus:border-blue-500 outline-none transition-all placeholder:text-slate-600" 
+                    className="w-full pl-12 p-4 rounded-2xl bg-zinc-50 border border-black/5 focus:border-olive-primary outline-none transition-all placeholder:text-zinc-400 text-zinc-900" 
                     required 
                   />
                 </div>
                 <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
                   <input 
                     type={showPassword ? "text" : "password"} 
                     placeholder="Password" 
                     value={password} 
                     onChange={(e) => setPassword(e.target.value)} 
-                    className="w-full pl-12 pr-12 p-4 rounded-2xl bg-slate-900/50 border border-slate-700 focus:border-blue-500 outline-none transition-all placeholder:text-slate-600" 
+                    className="w-full pl-12 pr-12 p-4 rounded-2xl bg-zinc-50 border border-black/5 focus:border-olive-primary outline-none transition-all placeholder:text-zinc-400 text-zinc-900" 
                     required 
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-900"
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -176,7 +176,7 @@ export const AuthScreen: React.FC = () => {
                 <button 
                   type="submit" 
                   disabled={loading} 
-                  className="w-full bg-blue-600 hover:bg-blue-500 p-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 group shadow-lg shadow-blue-600/20"
+                  className="w-full bg-olive-primary hover:bg-olive-dark text-white p-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 group shadow-lg shadow-olive-primary/20"
                 >
                   {loading ? 'Validating...' : 'Log In'}
                   <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
@@ -193,19 +193,19 @@ export const AuthScreen: React.FC = () => {
                 {regStep === 'EMAIL' && (
                   <div className="space-y-4">
                     <div className="relative">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
                       <input 
                         type="email" 
                         placeholder="Enter Gmail" 
                         value={email} 
                         onChange={(e) => setEmail(e.target.value)} 
-                        className="w-full pl-12 p-4 rounded-2xl bg-slate-900/50 border border-slate-700 focus:border-blue-500 outline-none transition-all" 
+                        className="w-full pl-12 p-4 rounded-2xl bg-zinc-50 border border-black/5 focus:border-olive-primary outline-none transition-all placeholder:text-zinc-400 text-zinc-900" 
                       />
                     </div>
                     <button 
                       onClick={handleSendOTP}
                       disabled={loading}
-                      className="w-full bg-blue-600 p-4 rounded-2xl font-bold flex items-center justify-center gap-2"
+                      className="w-full bg-olive-primary text-white p-4 rounded-2xl font-bold flex items-center justify-center gap-2"
                     >
                       {loading ? 'Sending OTP...' : 'Send OTP to Gmail'}
                       <ChevronRight size={18} />
@@ -215,24 +215,24 @@ export const AuthScreen: React.FC = () => {
 
                 {regStep === 'OTP' && (
                   <div className="space-y-4">
-                    <button onClick={() => setRegStep('EMAIL')} className="text-[10px] uppercase font-bold text-slate-500 flex items-center gap-1">
+                    <button onClick={() => setRegStep('EMAIL')} className="text-[10px] uppercase font-bold text-zinc-400 flex items-center gap-1">
                       <ArrowLeft size={12} /> {email}
                     </button>
                     <div className="relative">
-                      <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                      <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
                       <input 
                         type="text" 
                         placeholder="6-Digit OTP Code" 
                         maxLength={6}
                         value={otp} 
                         onChange={(e) => setOtp(e.target.value)} 
-                        className="w-full pl-12 p-4 rounded-2xl bg-slate-900/50 border border-slate-700 focus:border-blue-500 outline-none text-center tracking-[0.5em] font-black text-lg" 
+                        className="w-full pl-12 p-4 rounded-2xl bg-zinc-50 border border-black/5 focus:border-olive-primary outline-none text-center tracking-[0.5em] font-black text-lg text-zinc-900" 
                       />
                     </div>
                     <button 
                       onClick={handleVerifyOTP}
                       disabled={loading}
-                      className="w-full bg-green-600 p-4 rounded-2xl font-bold flex items-center justify-center gap-2"
+                      className="w-full bg-green-600 text-white p-4 rounded-2xl font-bold flex items-center justify-center gap-2"
                     >
                       {loading ? 'Verifying...' : 'Verify Gmail'}
                       <CheckCircle2 size={18} />
@@ -242,20 +242,20 @@ export const AuthScreen: React.FC = () => {
 
                 {regStep === 'PASSWORD' && (
                   <div className="space-y-4">
-                    <h3 className="text-center text-sm font-bold text-green-400">Gmail Verified!</h3>
+                    <h3 className="text-center text-sm font-bold text-green-600">Gmail Verified!</h3>
                     <div className="relative">
-                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
                       <input 
                         type={showPassword ? "text" : "password"} 
                         placeholder="Create Password" 
                         value={password} 
                         onChange={(e) => setPassword(e.target.value)} 
-                        className="w-full pl-12 pr-12 p-4 rounded-2xl bg-slate-900/50 border border-slate-700 focus:border-blue-500 outline-none transition-all" 
+                        className="w-full pl-12 pr-12 p-4 rounded-2xl bg-zinc-50 border border-black/5 focus:border-olive-primary outline-none transition-all text-zinc-900" 
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-900"
                       >
                         {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
@@ -263,7 +263,7 @@ export const AuthScreen: React.FC = () => {
                     <button 
                       onClick={handleRegister}
                       disabled={loading}
-                      className="w-full bg-blue-600 p-4 rounded-2xl font-bold"
+                      className="w-full bg-olive-primary text-white p-4 rounded-2xl font-bold"
                     >
                       {loading ? 'Creating Account...' : 'Complete Registration'}
                     </button>
