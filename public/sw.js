@@ -1,4 +1,4 @@
-const CACHE_NAME = 'study-master-v1';
+const CACHE_NAME = 'neet-prep-v1';
 const OFFLINE_URL = '/offline.html';
 const ASSETS_TO_CACHE = [
   '/',
