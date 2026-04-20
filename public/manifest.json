@@ -12,31 +12,43 @@
   "icons": [
     {
       "src": "/logo.png",
-      "sizes": "192x192",
+      "sizes": "192x192 512x512",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
       "src": "/logo.png",
-      "sizes": "512x512",
+      "sizes": "192x192 512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ],
   "screenshots": [
     {
       "src": "https://picsum.photos/seed/studymaster-s1/1080/1920",
       "sizes": "1080x1920",
-      "type": "image/png",
+      "type": "image/jpeg",
       "form_factor": "narrow",
-      "label": "Home Screen"
+      "label": "StudyMaster Home"
     },
     {
       "src": "https://picsum.photos/seed/studymaster-s2/1920/1080",
       "sizes": "1920x1080",
-      "type": "image/png",
+      "type": "image/jpeg",
       "form_factor": "wide",
-      "label": "Dashboard"
+      "label": "AI Prep Dashboard"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Community Chat",
+      "url": "/?shortcut=chat",
+      "icons": [{ "src": "/logo.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "AI Study Assistant",
+      "url": "/?shortcut=ai",
+      "icons": [{ "src": "/logo.png", "sizes": "192x192" }]
     }
   ]
 }
