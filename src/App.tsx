@@ -113,7 +113,7 @@ export default function App() {
 
   return (
     <div className={cn(
-        "min-h-screen", 
+        "min-h-screen safe-top", 
         activeTab === 'chat' ? "h-screen border-b-[64px] border-transparent overflow-hidden" : "pb-20", 
         theme === 'dark' ? 'dark' : ''
     )}>
