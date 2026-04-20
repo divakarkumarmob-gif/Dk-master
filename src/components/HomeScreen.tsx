@@ -160,8 +160,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
 
       {/* Footer Branding */}
       <div className="text-center pb-8 pt-4">
-        <h1 className="text-lg font-display font-bold text-olive-primary opacity-40">NEET Master</h1>
-        <p className="text-[9px] uppercase font-bold tracking-[0.2em] text-text-muted opacity-30">High Density Prep</p>
+        <h1 className="text-lg font-display font-bold text-olive-primary opacity-40">StudyMaster</h1>
+        <p className="text-[9px] uppercase font-bold tracking-[0.2em] text-text-muted opacity-30">Learn & Connect</p>
       </div>
 
       <VoiceAI />

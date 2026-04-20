@@ -23,11 +23,19 @@ import SettingsScreen from './components/SettingsScreen';
 import DailyTestScreen from './components/DailyTestScreen';
 import StudyTalks from './components/StudyTalks';
 import AdminDashboard from './components/AdminDashboard';
+import SplashScreen from './components/SplashScreen';
+import InstallPwa from './components/InstallPwa';
 
 export default function App() {
   const { user, setUser, setFullState, theme, updateStreak, activeTab, setActiveTab, cleanupOldChatHistory } = useAppStore();
   const [activeTest, setActiveTest] = useState<{ id: string; type: 'Minor' | 'Major'; subject?: string; chapter?: string } | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSplash(false), 2000);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -109,6 +117,12 @@ export default function App() {
         activeTab === 'chat' ? "h-screen border-b-[64px] border-transparent overflow-hidden" : "pb-20", 
         theme === 'dark' ? 'dark' : ''
     )}>
+      <AnimatePresence>
+        {showSplash && <SplashScreen key="splash" />}
+      </AnimatePresence>
+      
+      <InstallPwa />
+
       <div className="h-full flex flex-col relative bg-inherit">
         
         <main className={cn(

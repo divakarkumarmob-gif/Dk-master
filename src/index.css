@@ -130,4 +130,32 @@
   @apply absolute -top-2 left-5 text-[64px] opacity-20 font-serif;
 }
 
+/* Mobile PWA Enhancements */
+@layer utilities {
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+input, textarea {
+  -webkit-touch-callout: default;
+}
+
+body {
+  overscroll-behavior-y: none; /* Prevent pull-to-refresh */
+  user-select: none;
+}
+
+.selectable {
+  user-select: text;
+}
+
 
