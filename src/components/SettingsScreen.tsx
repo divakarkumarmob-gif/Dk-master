@@ -13,44 +13,74 @@ import {
   MessageSquare,
   Sparkles,
   Send,
-  Loader2
+  Loader2,
+  FileText
 } from 'lucide-react';
+import { signOut } from 'firebase/auth';
+import { auth } from '../services/firebase';
 import { useAppStore } from '../store/useAppStore';
 import { cn } from '../lib/utils';
 import { geminiService } from '../services/gemini';
 import { AISection } from './AISection';
+import { AIMemorySystem } from './AIMemorySystem';
 
 const SettingsScreen: React.FC = () => {
-  const { user, logout, theme, setTheme } = useAppStore();
-  const [showDoubtSolver, setShowDoubtSolver] = useState(false);
+  const { user, logout, theme, setTheme, preloadedAIPhoto, setActiveTab } = useAppStore();
+  const [showDoubtSolver, setShowDoubtSolver] = useState(preloadedAIPhoto !== null);
+  const [showMemory, setShowMemory] = useState(false);
+  const [showAccessDenied, setShowAccessDenied] = useState(false);
+
+  // Sync solver visibility with preloaded content
+  React.useEffect(() => {
+    if (preloadedAIPhoto) {
+      setShowDoubtSolver(true);
+    }
+  }, [preloadedAIPhoto]);
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    logout();
+  };
 
   if (showDoubtSolver) {
     return <AISection onBack={() => setShowDoubtSolver(false)} />;
+  }
+  
+  if (showMemory) {
+    return (
+        <div className="space-y-6">
+            <button onClick={() => setShowMemory(false)} className="px-2">⬅ Back</button>
+            <AIMemorySystem />
+        </div>
+    );
   }
 
   return (
     <div className="space-y-8 py-6">
       <h2 className="text-xl font-display font-bold px-2">Settings</h2>
 
+      {/* Access Denied Toast */}
+      {showAccessDenied && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="fixed bottom-20 left-6 right-6 bg-red-500 text-white p-4 rounded-2xl text-center font-bold z-[100] shadow-lg">
+             Access Denied
+          </motion.div>
+      )}
+
       {/* Profile Header */}
       <div className="bg-white p-6 rounded-2xl flex flex-col items-center text-center space-y-4 shadow-sm border border-line">
         <div className="relative">
           <div className="w-20 h-20 rounded-full border-4 border-olive-primary/10 p-1">
-            {user?.photo ? (
-              <img src={user.photo} alt={user.name} className="w-full h-full rounded-full object-cover" referrerPolicy="no-referrer" />
-            ) : (
-              <div className="w-full h-full rounded-full bg-olive-primary/5 flex items-center justify-center text-olive-primary">
-                <User size={32} />
-              </div>
-            )}
+            <div className="w-full h-full rounded-full bg-olive-primary/5 flex items-center justify-center text-olive-primary">
+              <User size={32} />
+            </div>
           </div>
           <div className="absolute bottom-0 right-0 w-6 h-6 bg-orange-accent text-white rounded-full flex items-center justify-center border-2 border-white dark:border-olive-dark shadow-sm">
              <ShieldCheck size={12} />
           </div>
         </div>
         <div>
-          <h3 className="text-lg font-bold text-text-main">{user?.name}</h3>
-          <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest">{user?.email || (user?.isGuest ? 'Guest Learner' : '')}</p>
+          <h3 className="text-lg font-bold text-text-main">{user?.email?.split('@')[0] || 'Learning Pro'}</h3>
+          <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest">{user?.email || 'Authenticated User'}</p>
         </div>
       </div>
 
@@ -81,6 +111,56 @@ const SettingsScreen: React.FC = () => {
               </div>
             </div>
             <ChevronRight size={22} className="text-white relative z-10 opacity-60 group-hover:opacity-100 transition-all group-hover:translate-x-1" />
+          </motion.button>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h4 className="px-4 text-[10px] font-bold uppercase tracking-widest text-text-muted">Memory & Backup</h4>
+        <div className="grid gap-3 px-2">
+           <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setShowMemory(true)}
+            className="w-full relative overflow-hidden p-5 rounded-[28px] flex items-center justify-between group shadow-sm bg-gradient-to-r from-blue-900 to-blue-600 text-white"
+          >
+            {/* Morphing Butterfly Animation Background */}
+            <div className="absolute inset-0 z-0 opacity-40 overflow-hidden">
+              {[...Array(8)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute text-white"
+                  style={{
+                    left: `${Math.random() * 100}%`,
+                    top: `100%`,
+                  }}
+                  animate={{ 
+                    top: [`100%`, `-20%`],
+                    x: [0, Math.random() * 50 - 25],
+                    rotate: [0, 45, -45, 0]
+                  }}
+                  transition={{
+                    duration: 5 + Math.random() * 5,
+                    repeat: Infinity,
+                    delay: Math.random() * 5,
+                    ease: "easeInOut",
+                  }}
+                >
+                  <Sparkles size={16} />
+                </motion.div>
+              ))}
+            </div>
+            
+            <div className="flex items-center gap-4 relative z-10 w-full">
+              <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white border border-white/30">
+                <Brain size={18} />
+              </div>
+              <div className="text-left">
+                <span className="font-bold text-sm block">Memory & Backup</span>
+                <span className="text-[10px] opacity-70">Access secure system data</span>
+              </div>
+            </div>
+            <ChevronRight size={18} className="text-white relative z-10" />
           </motion.button>
         </div>
       </div>
@@ -133,6 +213,56 @@ const SettingsScreen: React.FC = () => {
       <div className="space-y-4">
         <h4 className="px-4 text-[10px] font-bold uppercase tracking-widest text-text-muted">Support Network</h4>
         <div className="grid gap-3 px-2">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => window.open('https://t.me/Studymasternote_bot', '_blank')}
+            className="w-full relative overflow-hidden p-5 rounded-[28px] flex items-center justify-between group shadow-sm bg-orange-500"
+          >
+            {/* Animated Bubbles Background */}
+            <div className="absolute inset-0 z-0 opacity-40 overflow-hidden">
+              {[...Array(15)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute bg-white rounded-full opacity-30"
+                  style={{
+                    left: `${Math.random() * 100}%`,
+                    top: `100%`,
+                    width: `${Math.random() * 20 + 5}px`,
+                    height: `${Math.random() * 20 + 5}px`,
+                  }}
+                  animate={{ top: `-20%` }}
+                  transition={{
+                    duration: 3 + Math.random() * 3,
+                    repeat: Infinity,
+                    delay: Math.random() * 2,
+                    ease: "linear",
+                  }}
+                />
+              ))}
+            </div>
+            
+            <div className="flex items-center gap-4 relative z-10 w-full">
+              <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white border border-white/30">
+                <FileText size={18} />
+              </div>
+              <span className="font-bold text-sm text-white">Download Notes</span>
+            </div>
+            <ChevronRight size={18} className="text-white relative z-10" />
+          </motion.button>
+          
+          <MenuButton 
+            icon={<ShieldCheck size={18} />} 
+            label="Admin"             
+            onClick={() => {
+              if (user?.email === 'divakarkumarmob@gmail.com') {
+                setActiveTab('admin');
+              } else {
+                setShowAccessDenied(true);
+                setTimeout(() => setShowAccessDenied(false), 1000);
+              }
+            }}
+          />
           <MenuButton 
             icon={<Instagram size={18} />} 
             label="@mr.divakar00" 
@@ -148,7 +278,7 @@ const SettingsScreen: React.FC = () => {
 
       <div className="px-2">
         <button 
-          onClick={logout}
+          onClick={handleLogout}
           className="w-full flex items-center justify-center gap-3 p-4 rounded-xl text-olive-primary font-bold bg-[#E8E8E1] mt-8 mb-12 transition-colors uppercase text-xs tracking-widest"
         >
           <LogOut size={18} />

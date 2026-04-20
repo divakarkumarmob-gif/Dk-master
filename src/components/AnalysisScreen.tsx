@@ -13,9 +13,10 @@ import {
 } from 'recharts';
 import { useAppStore, TestResult } from '../store/useAppStore';
 import { cn } from '../lib/utils';
-import { format, differenceInMinutes } from 'date-fns';
-import { ChevronRight, Filter, TrendingUp, AlertCircle, Info, Brain, CheckCircle2, Sparkles, Loader2 } from 'lucide-react';
+import { format, differenceInMinutes, differenceInSeconds } from 'date-fns';
+import { ChevronRight, Filter, TrendingUp, AlertCircle, Info, Brain, CheckCircle2, Sparkles, Loader2, Clock, Star } from 'lucide-react';
 import { geminiService } from '../services/gemini';
+import { formatTime } from '../lib/utils';
 
 const AnalysisScreen: React.FC = () => {
   const { results, theme } = useAppStore();
@@ -50,10 +51,6 @@ const AnalysisScreen: React.FC = () => {
       console.error(e);
     }
     setLoadingAi(false);
-  };
-
-  const isLocked = (timestamp: string) => {
-    return differenceInMinutes(new Date(), new Date(timestamp)) < 2;
   };
 
   if (selectedResult) {
@@ -147,15 +144,14 @@ const AnalysisScreen: React.FC = () => {
              <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-40 h-40 bg-white/5 rounded-full blur-3xl"></div>
           </div>
 
-          <div className="space-y-4 pt-4">
+           <div className="space-y-4 pt-4">
             <h3 className="text-[10px] uppercase font-black tracking-[0.2em] text-text-muted px-4 italic">Operational Archives</h3>
             <div className="grid gap-4 px-2">
               {filteredResults.map((r) => (
                 <HistoryCard 
                   key={r.id} 
                   result={r} 
-                  locked={isLocked(r.timestamp)}
-                  onClick={() => !isLocked(r.timestamp) && setSelectedResult(r)}
+                  onOpen={setSelectedResult}
                 />
               ))}
             </div>
@@ -173,41 +169,77 @@ const AnalysisScreen: React.FC = () => {
   );
 }
 
-const HistoryCard: React.FC<{ result: TestResult, locked: boolean, onClick: () => void }> = ({ result, locked, onClick }) => {
+const HistoryCard: React.FC<{ result: TestResult, onOpen: (r: TestResult) => void }> = ({ result, onOpen }) => {
+  const [timeLeft, setTimeLeft] = useState<number>(0);
+  const [isCurrentlyLocked, setIsCurrentlyLocked] = useState(true);
+
+  useEffect(() => {
+    const calculateTime = () => {
+      const lockStartTime = new Date(result.timestamp).getTime();
+      const lockEndTime = lockStartTime + (2 * 60 * 1000);
+      const diff = Math.floor((lockEndTime - Date.now()) / 1000);
+      const remaining = Math.max(0, diff);
+      setTimeLeft(remaining);
+      setIsCurrentlyLocked(remaining > 0);
+    };
+
+    calculateTime();
+    const interval = setInterval(calculateTime, 1000);
+    return () => clearInterval(interval);
+  }, [result.timestamp]);
+
   return (
     <motion.div
-      whileTap={{ scale: 0.98 }}
-      onClick={onClick}
+      whileTap={isCurrentlyLocked ? {} : { scale: 0.98 }}
+      onClick={() => !isCurrentlyLocked && onOpen(result)}
       className={cn(
         "bg-white dark:bg-zinc-900 p-4 rounded-2xl flex items-center justify-between cursor-pointer border-l-[6px] shadow-sm transition-all border dark:border-white/5",
-        locked ? "opacity-60 grayscale cursor-not-allowed" : "border-l-olive-primary"
+        isCurrentlyLocked ? "border-l-orange-accent opacity-90 shadow-inner bg-orange-accent/[0.02]" : "border-l-olive-primary"
       )}
     >
       <div className="flex items-center gap-4">
         <div className={cn(
-          "w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs uppercase tracking-tight",
-          result.type === 'Major' ? "bg-orange-accent text-white" : "bg-olive-primary text-white"
+          "w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs uppercase tracking-tight transition-colors",
+          isCurrentlyLocked ? "bg-zinc-200 dark:bg-zinc-800 text-text-muted" : (result.type === 'Major' ? "bg-orange-accent text-white" : "bg-olive-primary text-white")
         )}>
           {result.type === 'Major' ? 'MJR' : 'MNR'}
         </div>
         <div>
           <p className="text-sm font-bold text-text-main dark:text-white">{result.type} Test: {result.subject || 'Final'}</p>
-          <p className="text-[10px] text-text-muted dark:text-zinc-500 font-bold uppercase tracking-wider">{format(new Date(result.timestamp), 'dd MMM • hh:mm a')}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-[10px] text-text-muted dark:text-zinc-500 font-bold uppercase tracking-wider">{format(new Date(result.timestamp), 'dd MMM • hh:mm a')}</p>
+            {isCurrentlyLocked && (
+              <div className="flex items-center gap-1 bg-orange-accent animate-pulse px-1.5 py-0.5 rounded text-white transform scale-90">
+                <Clock size={8} />
+                <span className="text-[8px] font-black">{formatTime(timeLeft)}</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       <div className="text-right flex items-center gap-2">
         <div>
-          <p className="text-base font-black text-olive-primary dark:text-white leading-none">{result.score}</p>
+          <p className={cn(
+            "text-base font-black transition-colors",
+            isCurrentlyLocked ? "text-text-muted opacity-40" : "text-olive-primary dark:text-white"
+          )}>{result.score}</p>
           <p className="text-[9px] text-text-muted dark:text-zinc-500 font-bold uppercase tracking-widest mt-0.5">Marks</p>
         </div>
-        {locked ? <Info size={14} className="text-text-muted" /> : <ChevronRight size={14} className="text-text-muted" />}
+        {isCurrentlyLocked ? (
+          <div className="relative">
+            <div className="absolute inset-0 bg-orange-accent rounded-full animate-ping opacity-20" />
+            <Clock size={14} className="text-orange-accent relative z-10" />
+          </div>
+        ) : (
+          <ChevronRight size={14} className="text-text-muted" />
+        )}
       </div>
     </motion.div>
   );
 }
 
 function ResultDetail({ result, onBack }: { result: TestResult, onBack: () => void }) {
-  const { theme, addExplanation } = useAppStore();
+  const { theme, addExplanation, toggleStarQuestion, starredQuestions } = useAppStore();
   const [qFilter, setQFilter] = useState<'All' | 'Correct' | 'Wrong' | 'Skipped'>('All');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [generating, setGenerating] = useState<Record<string, boolean>>({});
@@ -291,7 +323,23 @@ function ResultDetail({ result, onBack }: { result: TestResult, onBack: () => vo
                   className="bg-white dark:bg-zinc-900 p-6 rounded-2xl space-y-5 border border-line dark:border-white/10 shadow-sm relative"
                 >
                 <div className="flex justify-between items-center border-b border-black/5 dark:border-white/5 pb-3">
-                  <span className="text-[9px] font-black italic text-text-muted dark:text-zinc-500 uppercase tracking-[0.2em]">Inquiry ID-{currentQ.originalIndex + 1}</span>
+                   <div className="flex items-center gap-3">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleStarQuestion(currentQ);
+                        }}
+                        className={cn(
+                          "w-8 h-8 rounded-lg flex items-center justify-center transition-all border",
+                          starredQuestions.some(sq => sq.text === currentQ.text)
+                            ? "bg-orange-accent border-orange-accent text-white" 
+                            : "bg-white dark:bg-zinc-800 border-line dark:border-white/10 text-text-muted dark:text-zinc-500 hover:border-orange-accent/50"
+                        )}
+                      >
+                        <Star size={14} fill={starredQuestions.some(sq => sq.text === currentQ.text) ? "currentColor" : "none"} />
+                      </button>
+                      <span className="text-[9px] font-black italic text-text-muted dark:text-zinc-500 uppercase tracking-[0.2em]">Inquiry ID-{currentQ.originalIndex + 1}</span>
+                   </div>
                   <span className="text-[10px] font-black text-olive-primary dark:text-white opacity-60">{currentIndex + 1} of {filteredQuestions.length}</span>
                 </div>
                 

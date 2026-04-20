@@ -4,23 +4,20 @@ import { User, Chrome } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function LoginScreen() {
-  const { login } = useAppStore();
+  const { setUser } = useAppStore();
 
   const handleGoogleLogin = () => {
     // Mock Google Login
-    login({
-      id: 'google-123',
-      name: 'Divakar Kumar',
+    setUser({
+      uid: 'google-123',
       email: 'mr.divakar00@gmail.com',
-      photo: 'https://picsum.photos/seed/user/200/200',
     });
   };
 
   const handleGuestLogin = () => {
-    login({
-      id: 'guest-' + Date.now(),
-      name: 'Guest User',
-      isGuest: true,
+    setUser({
+      uid: 'guest-' + Date.now(),
+      email: null,
     });
   };
 

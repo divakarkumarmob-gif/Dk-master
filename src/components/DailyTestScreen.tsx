@@ -31,6 +31,7 @@ export default function DailyTestScreen({ testConfig, onBack }: TestProps) {
   const [timeLeft, setTimeLeft] = useState(0); // in seconds
   const [submitted, setSubmitted] = useState(false);
   const [showResultMsg, setShowResultMsg] = useState(false);
+  const [showExitModal, setShowExitModal] = useState(false);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -199,9 +200,70 @@ export default function DailyTestScreen({ testConfig, onBack }: TestProps) {
 
   return (
     <div className={cn("min-h-screen bg-bg-warm dark:bg-[#0A0A0A] flex flex-col pb-32", theme === 'dark' && "dark")}>
+      {/* Exit Confirmation Modal */}
+      <AnimatePresence>
+        {showExitModal && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-zinc-900 w-full max-w-sm rounded-[32px] p-8 space-y-6 shadow-2xl border border-line dark:border-white/10"
+            >
+              <div className="w-16 h-16 bg-orange-accent/10 rounded-2xl flex items-center justify-center mx-auto">
+                <AlertTriangle className="text-orange-accent" size={32} />
+              </div>
+              
+              <div className="text-center space-y-2">
+                <h3 className="text-xl font-display font-black text-olive-dark dark:text-white uppercase tracking-tight">Pause Protocol?</h3>
+                <p className="text-sm text-text-muted dark:text-zinc-500 font-medium px-4">Do you wish to submit your current progress or continue the architecture initialization?</p>
+              </div>
+
+              <div className="space-y-3">
+                <button 
+                  onClick={() => {
+                    setShowExitModal(false);
+                    handleSubmit();
+                  }}
+                  className="w-full py-4 bg-orange-accent text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-orange-accent/20 active:scale-[0.98] transition-transform"
+                >
+                  Submit & Finish
+                </button>
+                <button 
+                  onClick={() => setShowExitModal(false)}
+                  className="w-full py-4 bg-bg-warm dark:bg-zinc-800 text-olive-primary dark:text-white rounded-2xl font-black uppercase text-[10px] tracking-widest border border-line dark:border-white/5 active:scale-[0.98] transition-transform"
+                >
+                  Continue Test
+                </button>
+                <button 
+                  onClick={onBack}
+                  className="w-full py-2 text-[9px] font-black uppercase tracking-widest text-text-muted dark:text-zinc-500 opacity-50 hover:opacity-100 transition-opacity"
+                >
+                  Exit Without Saving
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <header className="px-6 pt-12 pb-4 flex justify-between items-center sticky top-0 bg-bg-warm/90 dark:bg-zinc-900/90 backdrop-blur-md z-10 border-b border-black/5 dark:border-white/10">
-        <button onClick={onBack} className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-800 border border-line dark:border-white/10 flex items-center justify-center transition-colors">
+        <button 
+          onClick={() => {
+            if (!submitted && !loading) {
+              setShowExitModal(true);
+            } else {
+              onBack();
+            }
+          }} 
+          className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-800 border border-line dark:border-white/10 flex items-center justify-center transition-colors"
+        >
           <ChevronLeft size={20} className="text-olive-primary dark:text-white" />
         </button>
         <div className="text-center">

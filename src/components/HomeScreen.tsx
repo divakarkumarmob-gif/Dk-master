@@ -25,7 +25,7 @@ interface HomeScreenProps {
 const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
   const { streak, results, user } = useAppStore();
   const [quote, setQuote] = useState("The only way to do great work is to love what you do.");
-  const [dailyData, setDailyData] = useState(getDailyChapters(new Date()));
+  const [dailyData, setDailyData] = useState(getDailyChapters());
   
   const targetDate = new Date('2026-05-03');
   const daysLeft = differenceInDays(targetDate, new Date());
@@ -62,7 +62,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
       </div>
 
       <div className="px-2">
-        <h2 className="text-2xl font-extrabold text-text-main">Hello, {user?.name.split(' ')[0]}!</h2>
+        <h2 className="text-2xl font-extrabold text-text-main">Hello, {user?.email?.split('@')[0] || 'Aspirant'}!</h2>
       </div>
 
       {/* Streak info */}
@@ -86,7 +86,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
             <Brain size={20} className="text-orange-accent" />
             Daily Targets
           </h2>
-          <span className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Sync at 12 AM</span>
+          <span className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Sync at 1 AM IST</span>
         </div>
 
         {dailyData.isSunday ? (
@@ -94,13 +94,38 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => onStartTest({ id: 'major-' + Date.now(), type: 'Major' })}
-            className="w-full bg-olive-primary text-white p-8 rounded-2xl flex items-center justify-between shadow-xl shadow-olive-primary/20"
+            className="w-full relative overflow-hidden p-8 rounded-2xl flex items-center justify-between shadow-xl border border-green-500"
           >
-            <div className="text-left">
-              <h4 className="text-2xl font-display font-black tracking-tight uppercase">SUNDAY FULL TEST</h4>
-              <p className="text-xs opacity-70 font-medium">Calibrate your full NEET potential</p>
+            {/* Gradient Background */}
+            <div className="absolute inset-0 bg-gradient-to-r from-teal-500 via-emerald-600 to-green-700"></div>
+            
+            {/* Animation particles */}
+            <div className="absolute inset-0 z-0 overflow-hidden">
+                {[...Array(6)].map((_, i) => (
+                    <motion.div
+                        key={i}
+                        className="absolute text-white/30"
+                        animate={{ 
+                            top: ["100%", "-20%"],
+                            left: [`${Math.random() * 100}%`, `${Math.random() * 100}%`],
+                            scale: [0, 1, 0]
+                        }}
+                        transition={{ 
+                            duration: 4 + Math.random() * 2,
+                            repeat: Infinity,
+                            delay: i * 0.5
+                        }}
+                    >
+                        <Sparkles size={20} />
+                    </motion.div>
+                ))}
             </div>
-            <ChevronRight size={32} />
+
+            <div className="text-left relative z-10 text-white">
+              <h4 className="text-2xl font-display font-black tracking-tight uppercase">SUNDAY FULL TEST</h4>
+              <p className="text-xs opacity-90 font-medium tracking-wide">Calibrate your full NEET potential</p>
+            </div>
+            <ChevronRight size={32} className="relative z-10 text-white" />
           </motion.button>
         ) : (
           <div className="grid gap-4">
@@ -131,6 +156,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
             <p className="text-[10px] uppercase tracking-widest font-black text-orange-accent/50">powered by dk</p>
           </div>
         </div>
+      </div>
+
+      {/* Footer Branding */}
+      <div className="text-center pb-8 pt-4">
+        <h1 className="text-lg font-display font-bold text-olive-primary opacity-40">NEET Master</h1>
+        <p className="text-[9px] uppercase font-bold tracking-[0.2em] text-text-muted opacity-30">High Density Prep</p>
       </div>
 
       <VoiceAI />

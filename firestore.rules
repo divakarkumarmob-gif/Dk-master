@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isAdmin() { return isSignedIn() && request.auth.token.email == 'divakarkumarmob@gmail.com'; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128; }
+
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Users ---
+    match /users/{userId} {
+      // Allow any signed-in user to read any other user's presence/profile
+      allow read: if isSignedIn();
+      // Allow write if owner or admin
+      allow write: if isOwner(userId) || isAdmin();
+      
+      match /notes/{noteId} {
+        allow read, write: if isOwner(userId);
+      }
+      match /results/{resultId} {
+        allow read, write: if isOwner(userId);
+      }
+      match /starred/{questionId} {
+        allow read, write: if isOwner(userId);
+      }
+      match /chat/{chatId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // --- Chat & Connections ---
+    match /community_chat/{messageId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && incoming().senderId == request.auth.uid;
+      allow update, delete: if isSignedIn() && (existing().senderId == request.auth.uid || isAdmin());
+    }
+
+    match /friend_requests/{requestId} {
+      // Allow reading if you are either the sender or recipient
+      allow read: if isSignedIn() && (resource.data.toId == request.auth.uid || resource.data.fromId == request.auth.uid);
+      allow create: if isSignedIn() && incoming().fromId == request.auth.uid;
+      allow update: if isSignedIn() && (
+        (existing().toId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status'])) ||
+        (existing().fromId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['senderSeen']))
+      );
+      allow delete: if isSignedIn() && (existing().toId == request.auth.uid || existing().fromId == request.auth.uid || isAdmin());
+    }
+
+    match /private_chats/{chatId} {
+      // Allow access if you are a participant
+      allow read, create, update: if isSignedIn() && (request.auth.uid in (resource == null ? incoming().participants : existing().participants));
+      
+      match /messages/{messageId} {
+        allow read, create: if isSignedIn();
+        allow update: if isSignedIn() && (
+           (existing().senderId != request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status']))
+        );
+        allow delete: if isSignedIn() && existing().senderId == request.auth.uid;
+      }
+    }
+
+    // --- Admin & Support ---
+    match /name_alerts/{alertId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+    }
+
+    match /message_requests/{requestId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update: if isAdmin();
+    }
+
+    match /interactions/{interactionId} {
+      allow read: if isOwner(resource.data.userId);
+      allow create: if isOwner(incoming().userId);
+    }
+
+    match /reports/{reportId} {
+      allow create: if isSignedIn();
+      allow read: if isAdmin();
+    }
+  }
+}

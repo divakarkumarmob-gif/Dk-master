@@ -5,44 +5,98 @@ import {
   BarChart2, 
   BookOpen, 
   Settings as SettingsIcon,
-  LogOut,
   User,
-  Search,
-  PlusCircle,
-  Clock,
-  Calendar,
-  Sparkles,
-  ChevronRight,
-  CheckCircle2,
-  XCircle,
-  Star,
-  Info
+  MessageCircle,
 } from 'lucide-react';
-import { useAppStore, getDailyChapters, User as UserType } from './store/useAppStore';
+import { useAppStore } from './store/useAppStore';
 import { cn } from './lib/utils';
+import { auth, db } from './services/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 
 // Components
-import LoginScreen from './components/LoginScreen';
+import { AuthScreen } from './components/AuthScreen';
 import HomeScreen from './components/HomeScreen';
 import AnalysisScreen from './components/AnalysisScreen';
 import NotesScreen from './components/NotesScreen';
 import SettingsScreen from './components/SettingsScreen';
 import DailyTestScreen from './components/DailyTestScreen';
-import { AISection } from './components/AISection';
+import StudyTalks from './components/StudyTalks';
+import AdminDashboard from './components/AdminDashboard';
 
 export default function App() {
-  const { user, theme, results, updateStreak } = useAppStore();
-  const [activeTab, setActiveTab] = useState<'home' | 'analysis' | 'notes' | 'settings'>('home');
+  const { user, setUser, setFullState, theme, updateStreak, activeTab, setActiveTab, cleanupOldChatHistory } = useAppStore();
   const [activeTest, setActiveTest] = useState<{ id: string; type: 'Minor' | 'Major'; subject?: string; chapter?: string } | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      updateStreak();
-    }
-  }, [user]);
+    window.scrollTo(0, 0);
+  }, [activeTab]);
+
+  useEffect(() => {
+    // Initial cleanup
+    cleanupOldChatHistory();
+  }, []);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        setUser({ uid: firebaseUser.uid, email: firebaseUser.email });
+        updateStreak();
+
+        // ☁️ Restore Cloud Data
+        setIsSyncing(true);
+        try {
+          const { dataSync } = await import('./services/dataSync');
+          
+          // Initial presence update
+          dataSync.updateUserPresence(firebaseUser.uid, true);
+
+          const cloudData = await dataSync.fetchUserData(firebaseUser.uid);
+          if (cloudData) {
+            setFullState({
+              results: cloudData.results || [],
+              notes: cloudData.notes || [],
+              starredQuestions: cloudData.starredQuestions || [],
+              chatHistory: cloudData.chatHistory || [],
+              streak: cloudData.profile?.streak ?? 0,
+              lastLoginDate: cloudData.profile?.lastLoginDate ?? null
+            });
+          }
+        } catch (e) {
+          console.error("Cloud data sync failed:", e);
+        } finally {
+          setIsSyncing(false);
+        }
+      } else {
+        if (user?.uid) {
+            import('./services/dataSync').then(({ dataSync }) => {
+                dataSync.updateUserPresence(user.uid, false);
+            });
+        }
+        setUser(null);
+        setIsSyncing(false);
+      }
+    });
+
+    // Cleanup: Mark offline when window closes
+    const handleUnload = () => {
+        if (auth.currentUser) {
+            const userRef = doc(db, 'users', auth.currentUser.uid);
+            // We use a simple doc update here as we can't easily use dataSync during unload
+            setDoc(userRef, { isOnline: false }, { merge: true });
+        }
+    };
+    window.addEventListener('beforeunload', handleUnload);
+
+    return () => {
+        unsub();
+        window.removeEventListener('beforeunload', handleUnload);
+    };
+  }, []);
 
   if (!user) {
-    return <LoginScreen />;
+    return <AuthScreen />;
   }
 
   if (activeTest) {
@@ -50,28 +104,17 @@ export default function App() {
   }
 
   return (
-    <div className={cn("min-h-screen pb-24", theme === 'dark' ? 'dark' : '')}>
-      <div className="max-w-md mx-auto min-h-screen flex flex-col relative bg-inherit">
+    <div className={cn(
+        "min-h-screen", 
+        activeTab === 'chat' ? "h-screen border-b-[64px] border-transparent overflow-hidden" : "pb-20", 
+        theme === 'dark' ? 'dark' : ''
+    )}>
+      <div className="h-full flex flex-col relative bg-inherit">
         
-        <header className="px-6 pt-12 pb-4 flex justify-between items-center bg-bg-warm sticky top-0 z-10">
-          <div>
-            <h1 className="text-xl font-display font-bold text-olive-primary">NEET Master</h1>
-            <p className="text-[10px] uppercase font-bold tracking-widest text-text-muted">High Density Prep</p>
-          </div>
-          <motion.div 
-            whileTap={{ scale: 0.9 }}
-            className="w-10 h-10 rounded-full bg-white border border-line flex items-center justify-center cursor-pointer shadow-sm"
-            onClick={() => setActiveTab('settings')}
-          >
-            {user.photo ? (
-              <img src={user.photo} alt={user.name} className="w-full h-full rounded-full object-cover" referrerPolicy="no-referrer" />
-            ) : (
-              <User className="text-olive-primary" size={20} />
-            )}
-          </motion.div>
-        </header>
-
-        <main className="flex-1 px-6">
+        <main className={cn(
+            "flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 overflow-hidden flex flex-col",
+            activeTab === 'chat' ? "pt-2" : "pt-6"
+        )}>
           <AnimatePresence mode="wait">
             {activeTab === 'home' && (
               <HomeScreen onStartTest={(config) => setActiveTest(config)} key="home" />
@@ -82,35 +125,47 @@ export default function App() {
             {activeTab === 'notes' && (
               <NotesScreen key="notes" />
             )}
+            {activeTab === 'chat' && (
+              <StudyTalks key="chat" />
+            )}
+            {activeTab === 'admin' && (
+              <AdminDashboard key="admin" />
+            )}
             {activeTab === 'settings' && (
               <SettingsScreen key="settings" />
             )}
           </AnimatePresence>
         </main>
 
-        <nav className="fixed bottom-0 left-0 right-0 h-[80px] bg-white border-t border-black/5 flex justify-around items-center px-4 pb-6 z-50">
+        <nav className="fixed bottom-0 left-0 right-0 h-[64px] bg-white border-t border-black/5 flex justify-around items-center px-4 pb-2 z-50 ">
           <TabButton 
             active={activeTab === 'home'} 
             onClick={() => setActiveTab('home')} 
-            icon={<HomeIcon size={20} />} 
+            icon={<HomeIcon size={18} />} 
             label="Home" 
           />
           <TabButton 
             active={activeTab === 'analysis'} 
             onClick={() => setActiveTab('analysis')} 
-            icon={<BarChart2 size={20} />} 
+            icon={<BarChart2 size={18} />} 
             label="Analysis" 
           />
           <TabButton 
             active={activeTab === 'notes'} 
             onClick={() => setActiveTab('notes')} 
-            icon={<BookOpen size={20} />} 
+            icon={<BookOpen size={18} />} 
             label="Notes" 
+          />
+          <TabButton 
+            active={activeTab === 'chat'} 
+            onClick={() => setActiveTab('chat')} 
+            icon={<MessageCircle size={18} />} 
+            label="Talks" 
           />
           <TabButton 
             active={activeTab === 'settings'} 
             onClick={() => setActiveTab('settings')} 
-            icon={<SettingsIcon size={20} />} 
+            icon={<SettingsIcon size={18} />} 
             label="Settings" 
           />
         </nav>

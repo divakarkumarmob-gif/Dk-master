@@ -1,0 +1,10 @@
+export const config = {
+  projectId: "gen-lang-client-0339986798",
+  appId: "1:1087967978698:web:d476a782583c31667e4033",
+  apiKey: "AIzaSyBI78QnY8dOzPhFmMg_weeWuBYey0gLlMs",
+  authDomain: "gen-lang-client-0339986798.firebaseapp.com",
+  firestoreDatabaseId: "ai-studio-35440246-9200-461f-8a19-c1ad0c54c053",
+  storageBucket: "gen-lang-client-0339986798.firebasestorage.app",
+  messagingSenderId: "1087967978698",
+  measurementId: ""
+};

@@ -1,0 +1,51 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and message limits",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "dailyMessageCount": { "type": "integer" },
+        "lastMessageDate": { "type": "string", "format": "date" },
+        "extraMessageLimit": { "type": "integer" }
+      },
+      "required": ["uid", "dailyMessageCount", "lastMessageDate"]
+    },
+    "MessageRequest": {
+      "title": "MessageRequest",
+      "description": "Request for extra messages",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "requestedAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] }
+      },
+      "required": ["userId", "requestedAt", "status"]
+    },
+    "PrivateChat": {
+      "title": "PrivateChat",
+      "description": "1-to-1 conversation",
+      "type": "object",
+      "properties": {
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "blockedBy": { "type": "string" }
+      },
+      "required": ["participants"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile with daily message metrics."
+    },
+    "/message_requests/{requestId}": {
+      "schema": "MessageRequest",
+      "description": "Requests for extra messaging capacity."
+    },
+    "/private_chats/{chatId}": {
+      "schema": "PrivateChat",
+      "description": "1-to-1 conversation messages."
+    }
+  }
+}

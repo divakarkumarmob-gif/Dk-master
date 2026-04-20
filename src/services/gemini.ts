@@ -1,5 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { FALLBACK_QUESTIONS } from "../constants/fallbackData";
+import { db, auth } from "./firebase";
+import { collection, query, where, limit, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
@@ -23,23 +25,13 @@ const handleGeminiCall = async (fn: () => Promise<any>, fallback?: any, cacheKey
     }
     return data;
   } catch (error: any) {
-    const isQuotaError = error?.message?.includes('429') || error?.status === 'RESOURCE_EXHAUSTED' || error?.message?.includes('quota');
-    
-    // Only log if it's NOT a quota error (to keep console clean)
-    if (!isQuotaError) {
-      console.error("Gemini API Error:", error);
-    } else {
-      console.warn("Gemini Quota limit hit. Serving fallback.");
-    }
-
-    if (isQuotaError) {
-      return fallback || null;
-    }
-    throw error;
+    console.error("Gemini API Error:", error);
+    return fallback || null;
   }
 };
 
 export const geminiService = {
+  // ... generateQuestions ...
   async generateQuestions(subject: string, chapter: string, count: number = 30) {
     if (!process.env.GEMINI_API_KEY) throw new Error("API Key missing");
     
@@ -63,33 +55,96 @@ export const geminiService = {
     }, FALLBACK_QUESTIONS, cacheKey);
   },
 
-  async solveDoubt(doubt: string, context?: string) {
-    // Only cache if it's the specific "Quote" request to save API calls on home screen
-    const isQuoteRequest = doubt.includes("motivational quote");
-    const cacheKey = isQuoteRequest ? `daily_quote_${new Date().toDateString()}` : undefined;
+  async solveDoubt(doubt: string, context?: string, imageData?: { data: string, mimeType: string }) {
+    if (!doubt && !imageData) return null;
+    const keywords = doubt ? doubt.toLowerCase().split(' ').filter(word => word.length > 4) : [];
 
+    // 1. Search Memory (Firestore) - Only if it's text-only
+    if (!imageData && doubt) {
+      const userId = auth.currentUser?.uid;
+      if (userId) {
+        try {
+            const q = query(
+                collection(db, 'interactions'), 
+                where('keywords', 'array-contains-any', keywords.length > 0 ? keywords : [doubt]),
+                where('userId', '==', userId),
+                limit(1)
+            );
+            const snapshot = await getDocs(q);
+            if (!snapshot.empty) return snapshot.docs[0].data().answer;
+        } catch(e) {
+            console.error("Memory search failed:", e);
+        }
+      }
+    }
+
+    // 2. Ask AI
+    const answer = await handleGeminiCall(async () => {
+        const parts: any[] = [];
+        if (imageData) {
+          parts.push({
+            inlineData: imageData
+          });
+        }
+        if (doubt) {
+          parts.push({ text: doubt });
+        } else if (imageData) {
+          parts.push({ text: "What is in this image? Explain simply." });
+        }
+
+        const promptContext = `Context: ${context || 'NEET'}\n
+        ROLE: NEET Expert.
+        RULES: ONLY direct answer. MAX 2 sentences. No 'Hi', 'Hello', 'As a...', or 'Good luck'. Hinglish. Plain text only. No symbols.`;
+        
+        const response = await ai.models.generateContent({
+          model: "gemini-3-flash-preview",
+          contents: { parts: [...parts, { text: `Context: ${context || 'NEET'}` }] },
+          config: {
+            systemInstruction: "You are a NEET Expert. RULES: Provide a concise directly relevant answer. MAX 5 sentences. NO conversational fillers (Hi/Hello/As a...). Output Hinglish. Plain text only. No special symbols."
+          }
+        });
+        return response.text;
+    }, "I am sorry, but my neural core is currently cooling down. Please practice NCERT chapters meanwhile!");
+
+    // 3. Save to memory (Simplified for now, skipping image memory storage to save space)
+    if (answer && !imageData && doubt) {
+        try {
+            await addDoc(collection(db, 'interactions'), {
+                userId: auth.currentUser?.uid,
+                question: doubt,
+                answer: answer,
+                keywords: keywords.length > 0 ? keywords : [doubt],
+                timestamp: serverTimestamp()
+            });
+        } catch(e) {
+            console.error("Failed to save to memory:", e);
+        }
+    }
+
+    return answer;
+  },
+
+  async analyzeImage(imageData: string, customPrompt?: string) {
     return handleGeminiCall(async () => {
-      const prompt = `User Doubt: ${doubt}\nContext: ${context || 'Targeting NEET Exam'}\n
-      ROLE: You are an expert NEET Teacher.
-      RULES:
-      1. STICK STRICTLY TO NCERT content and study-related topics. 
-      2. If the user asks something NOT related to studies (Bollywood, gossip, random facts not in syllabus), politely refuse and say you only help with NEET studies.
-      3. LANGUAGE: Use a mix of English and Hinglish (Hindi in Latin script) - natural and human-like.
-      4. TONE: Very friendly, human-like, empathic. After answering, ALWAYS ask a human-like follow-up like "Aur koi problem ho to batao, main yahin hoon!" or "I hope ye clear hai? Kuch aur puchna hai?".
-      5. FORMATTING: Use simple text. Avoid symbols like #, *, $, /.
-      6. Ensure the answer is exactly what is asked based on NCERT books.`;
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: prompt,
+        contents: {
+          parts: [
+            { inlineData: { data: imageData.split(',')[1], mimeType: "image/png" } },
+            { text: customPrompt || "Analyze this image and summarize it for a NEET student in Hinglish. Focus on identifying diagrams, formulas, or biological structures." }
+          ]
+        },
+        config: {
+          systemInstruction: "You are an expert NEET mentor. Be concise. Use plain text. Focus only on key points found in image."
+        }
       });
       return response.text;
-    }, "I am sorry, but my neural core is currently cooling down (Quota exceeded). Please practicing NCERT chapters meanwhile!", cacheKey);
+    }, "Unable to analyze the image at the moment.");
   },
 
   async summarizeResponse(text: string) {
     return handleGeminiCall(async () => {
-      const prompt = `Summarize the following explanation in exactly 2-3 short, clear sentences. 
-      Avoid all special symbols like #, *, $, /. Output only the plain summary text: \n\n${text}`;
+      const prompt = `Summarize: ${text}. Plain text only.`;
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: prompt,
@@ -100,8 +155,7 @@ export const geminiService = {
 
   async getStudyPlan(performanceData: string) {
     return handleGeminiCall(async () => {
-      const prompt = `Based on these test results: ${performanceData}, suggest 3 weak topics and a 7-day study plan specifically for NEET preparation. 
-      Use simple dashed lines instead of asterisks for bullets. Avoid #, $, /.`;
+      const prompt = `Study plan based on: ${performanceData}. Plain text.`;
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: prompt,

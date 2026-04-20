@@ -1,22 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useDragControls, useAnimation } from 'motion/react';
-import { Mic, MicOff, X, Volume2, Sparkles, Loader2 } from 'lucide-react';
+import { Mic, MicOff, X, Volume2, Sparkles, Loader2, Trash2, History } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { geminiService } from '../services/gemini';
 import { useAppStore, getDailyChapters } from '../store/useAppStore';
 
 export const VoiceAI: React.FC = () => {
-  const { streak, results, user } = useAppStore();
+  const { streak, results, user, addChatMessage, deleteChatMessage, clearChatHistory, chatHistory, lastAnalyzedPhotoContext, lastUploadedPhotoName } = useAppStore();
   const [isOpen, setIsOpen] = useState(false);
+  const [showLabel, setShowLabel] = useState(false);
   const [mode, setMode] = useState<'voice' | 'text' | 'history'>('voice');
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [response, setResponse] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [textInput, setTextInput] = useState('');
-  const [history, setHistory] = useState<{type: 'voice' | 'text' | 'history', query: string, response: string}[]>([]);
   const recognitionRef = useRef<any>(null);
   const synthesisRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const labelTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   const controls = useAnimation();
   const constraintsRef = useRef<HTMLDivElement>(null);
@@ -24,6 +25,9 @@ export const VoiceAI: React.FC = () => {
   useEffect(() => {
     // Initial position
     controls.set({ x: 20, y: window.innerHeight - 150 });
+    return () => {
+      if (labelTimerRef.current) clearTimeout(labelTimerRef.current);
+    };
   }, [controls]);
 
   useEffect(() => {
@@ -57,7 +61,7 @@ export const VoiceAI: React.FC = () => {
     setResponse('');
     
     // Construct rich context for the AI
-    const daily = getDailyChapters(new Date());
+    const daily = getDailyChapters();
     const avgScore = results.length > 0 
       ? (results.reduce((acc, r) => acc + r.score, 0) / results.length).toFixed(1) 
       : 0;
@@ -65,6 +69,26 @@ export const VoiceAI: React.FC = () => {
     
     // --- LOCAL LOGIC GATE (OFFLINE/SPEED) ---
     const lowerText = text.toLowerCase();
+
+    // Summary detection
+    if (lowerText === "summary" || lowerText === "summarise") {
+      const lastAIResponse = chatHistory.slice().reverse().find(m => m.role === 'ai');
+      if (lastAIResponse) {
+        setIsProcessing(true);
+        setResponse('');
+        const summary = await geminiService.summarizeResponse(lastAIResponse.text);
+        if (summary) {
+          const summaryText = `[SUMMARY]: ${summary}`;
+          setResponse(summaryText);
+          addChatMessage({ id: Date.now().toString(), role: 'user', text: text, timestamp: new Date().toISOString() });
+          addChatMessage({ id: (Date.now() + 1).toString(), role: 'ai', text: summaryText, timestamp: new Date().toISOString() });
+          speak(summaryText);
+        }
+        setIsProcessing(false);
+        return;
+      }
+    }
+
     let localReply = "";
 
     if (lowerText.includes("score") || lowerText.includes("marks") || lowerText.includes("result")) {
@@ -80,7 +104,7 @@ export const VoiceAI: React.FC = () => {
         localReply = `Aapne ${results.filter(r => r.type === 'Minor').length} Minor aur ${results.filter(r => r.type === 'Major').length} Major tests diye hain. Detailed analysis Analysis tab me dekh sakte hain.`;
       }
     } else if (lowerText.includes("kaise chalaye") || lowerText.includes("how to use") || lowerText.includes("sections")) {
-      localReply = "Ye app 4 sections me divided hai: Home me daily targets hain, Analysis me aapki progress, Notes me aapke concepts, aur main (Talk AI) aapka personal coach hoon. Aap kahin bhi move kar sakte hain mujhe!";
+      localReply = "Ye app 4 sections me divided hai: Home me daily targets hain, Analysis me aapki progress, Notes me aapke concepts, aur main (dk live) aapka personal coach hoon. Aap kahin bhi move kar sakte hain mujhe!";
     } else if (lowerText.includes("galti") || lowerText.includes("mistake") || lowerText.includes("improvement")) {
       if (results.length === 0) {
         localReply = "Pehle ek test do, toh main aapki galtiyan analyze kar ke improvement plan bata sakti hoon.";
@@ -88,11 +112,18 @@ export const VoiceAI: React.FC = () => {
         const wrongCount = lastResult.wrong;
         localReply = `Aapne pichle test me ${wrongCount} questions galat kiye. Inhe Analysis section me re-attempt karke marks sudhar sakte hain.`;
       }
+    } else if (
+      (lowerText.includes("tumhe") || lowerText.includes("tumhare") || lowerText.includes("tumko") || lowerText.includes("tum")) &&
+      (lowerText.includes("kisne") || lowerText.includes("kaun") || lowerText.includes("owner") || lowerText.includes("kiske")) &&
+      (lowerText.includes("banaya") || lowerText.includes("malik") || lowerText.includes("owner") || lowerText.includes("boss"))
+    ) {
+      localReply = "Mujhe Mister DK ne banaya hai. Kya aap unse baat karna chahte hain? Unki Insta ID mr.divakar00 hai, ya aap settings me help section me ja sakte hain.";
     }
 
     if (localReply) {
       setResponse(localReply);
-      setHistory(prev => [{type: mode, query: text, response: localReply}, ...prev]);
+      addChatMessage({ id: Date.now().toString(), role: 'user', text: text, timestamp: new Date().toISOString() });
+      addChatMessage({ id: (Date.now() + 1).toString(), role: 'ai', text: localReply, timestamp: new Date().toISOString() });
       speak(localReply);
       setIsProcessing(false);
       return;
@@ -100,12 +131,11 @@ export const VoiceAI: React.FC = () => {
     // --- END LOCAL LOGIC ---
 
     const appContext = `
-      USER_DATA:
-      - Name: ${user?.name}
-      - Streak: ${streak} days
-      - Avg Score: ${avgScore}%
-      - Recent Test: ${lastResult ? `${lastResult.subject} - ${lastResult.score}%` : 'No tests done yet'}
-      - Today's Targets: ${Object.entries(daily.chapters).map(([s, c]) => `${s}: ${c}`).join(', ')}
+      USER: ${user?.email} | STREAK: ${streak} | AVG: ${avgScore}%
+      RECENT_ANALYSIS: ${lastAnalyzedPhotoContext ? `${lastAnalyzedPhotoContext.name}: ${lastAnalyzedPhotoContext.summary}` : 'None'}
+      RECENT_UPLOAD: ${lastUploadedPhotoName || 'None'}
+      TEST: ${lastResult ? `${lastResult.subject} - ${lastResult.score}%` : 'None'}
+      TARGETS: ${Object.entries(daily.chapters).map(([s, c]) => `${s}:${c}`).join(', ')}
       
       APP_MANUAL:
       - App Name: NEET Prep Master
@@ -117,7 +147,8 @@ export const VoiceAI: React.FC = () => {
     try {
       const aiResponse = await geminiService.solveDoubt(text, appContext);
       setResponse(aiResponse);
-      setHistory(prev => [{type: mode, query: text, response: aiResponse}, ...prev]);
+      addChatMessage({ id: Date.now().toString(), role: 'user', text: text, timestamp: new Date().toISOString() });
+      addChatMessage({ id: (Date.now() + 1).toString(), role: 'ai', text: aiResponse, timestamp: new Date().toISOString() });
       speak(aiResponse);
     } catch (e) {
       console.error(e);
@@ -187,12 +218,38 @@ export const VoiceAI: React.FC = () => {
               animate={controls}
               onDragEnd={handleDragEnd}
               whileDrag={{ scale: 1.1, cursor: 'grabbing' }}
-              className="absolute pointer-events-auto touch-none"
+              className="absolute pointer-events-auto touch-none flex items-center"
               style={{ x: 20, y: window.innerHeight - 150, zIndex: 100 }}
             >
+              <AnimatePresence>
+                {showLabel && (
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    className="absolute left-full ml-3 px-3 py-1.5 bg-black/80 backdrop-blur-md rounded-lg border border-white/20 whitespace-nowrap"
+                  >
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white italic">dk live</span>
+                    <div className="absolute left-0 top-1/2 -translate-x-full -translate-y-1/2 w-0 h-0 border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent border-r-[5px] border-r-black/80"></div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
+                onPointerDown={() => {
+                  setShowLabel(true);
+                  if (labelTimerRef.current) clearTimeout(labelTimerRef.current);
+                }}
+                onPointerUp={() => {
+                  labelTimerRef.current = setTimeout(() => setShowLabel(false), 5000);
+                }}
+                onPointerLeave={() => {
+                  if (showLabel && !labelTimerRef.current) {
+                    labelTimerRef.current = setTimeout(() => setShowLabel(false), 5000);
+                  }
+                }}
                 onClick={() => setIsOpen(true)}
                 className="relative group w-14 h-14"
               >
@@ -249,7 +306,7 @@ export const VoiceAI: React.FC = () => {
                 <div className="flex justify-between items-center relative z-10 p-1">
                   <div className="flex items-center gap-2 bg-gradient-to-r from-blue-500/20 to-purple-500/20 px-3 py-1.5 rounded-full border border-white/10">
                     <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse shadow-[0_0_10px_#2196F3]"></div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-white">Neural Live AI</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white italic">dk live</span>
                   </div>
                   <button onClick={closePortal} className="text-[#7E7E7A] hover:text-white transition-colors">
                     <X size={18} />
@@ -339,13 +396,44 @@ export const VoiceAI: React.FC = () => {
                     </div>
                   ) : (
                     // History Mode
-                    <div className="w-full h-[180px] overflow-y-auto space-y-3 p-2">
-                      {history.length === 0 ? <p className="text-white/50 text-xs text-center">No history yet</p> : history.map((h, i) => (
-                        <div key={i} className="text-left bg-white/5 p-2 rounded-xl text-xs space-y-1">
-                          <p className="font-bold text-blue-300">{h.query}</p>
-                          <p className="text-white/80">{h.response}</p>
-                        </div>
-                      ))}
+                    <div className="w-full space-y-3">
+                      <div className="flex justify-between items-center px-1">
+                        <p className="text-[9px] font-black uppercase text-white/40 tracking-widest">Neural Logs</p>
+                        {chatHistory.length > 0 && (
+                          <button 
+                            onClick={() => {
+                              if (window.confirm("Format all neural logs?")) {
+                                clearChatHistory();
+                              }
+                            }}
+                            className="text-[9px] font-black uppercase text-orange-accent hover:opacity-80 transition-opacity"
+                          >
+                            Clear All
+                          </button>
+                        )}
+                      </div>
+                      <div className="w-full h-[180px] overflow-y-auto space-y-3 p-2 custom-scrollbar">
+                        {chatHistory.length === 0 ? <p className="text-white/50 text-xs text-center">No history yet</p> : chatHistory.slice().reverse().map((h) => (
+                          <div key={h.id} className="text-left bg-white/5 p-2 rounded-xl text-xs space-y-1 group relative">
+                            <button 
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm("Archive log delete karein?")) {
+                                  if (h.id) {
+                                    deleteChatMessage(h.id);
+                                  }
+                                }
+                              }}
+                              className="absolute -top-1 -right-1 p-2 bg-orange-accent text-white rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-xl z-[30] cursor-pointer active:scale-90"
+                            >
+                              <Trash2 size={10} />
+                            </button>
+                            <p className="font-bold text-blue-300 uppercase">{h.role}</p>
+                            <p className="text-white/80">{h.text}</p>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
