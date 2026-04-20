@@ -1,43 +1,36 @@
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
-import path from 'path';
-import fs from 'fs-extra';
 import { GoogleGenAI } from '@google/genai';
 import nodemailer from 'nodemailer';
+import fs from 'fs-extra';
+import path from 'path';
 
 const app = express();
-const PORT = 3000;
 app.use(express.json());
 
-// OTP Memory storage (In-memory for simplicity, resets on server restart)
 const otps = new Map<string, { code: string; expiry: number }>();
-
-const MEMORY_FILE = './memory.json';
+const MEMORY_FILE = '/tmp/memory.json';
 const MAX_ENTRIES = 1000;
 
+// Initialize memory in /tmp (Vercel serverless has /tmp as writable)
 if (!fs.existsSync(MEMORY_FILE)) {
   fs.writeJsonSync(MEMORY_FILE, { entries: [] });
 }
 
-// Gemini Client
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-// API Endpoints
 app.post('/api/auth/send-otp', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email required' });
 
   const code = Math.floor(100000 + Math.random() * 900000).toString();
-  otps.set(email, { code, expiry: Date.now() + 10 * 60 * 1000 }); // 10 mins
+  otps.set(email, { code, expiry: Date.now() + 10 * 60 * 1000 });
 
-  // Developer Fallback: If no SMTP credentials, return OTP in response (for testing)
   if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
-    console.warn(`[AUTH] Credentials missing for ${email}. OTP is: ${code}`);
     return res.json({ 
       success: true, 
-      message: 'OTP generated (Developer Mode). Check server logs or use the code below.', 
+      message: 'OTP generated (Developer Mode).', 
       dev: true,
-      code: code // Including code in response ONLY when credentials are missing for easier development
+      code: code 
     });
   }
 
@@ -68,7 +61,6 @@ app.post('/api/auth/send-otp', async (req, res) => {
     });
     res.json({ success: true, message: 'OTP has been sent to your Gmail.' });
   } catch (error: any) {
-    console.error('Mail Error:', error);
     if (error.responseCode === 535) {
       return res.status(401).json({ 
         error: 'Invalid Gmail Login. Please use an "App Password" instead of your regular password in Settings -> Secrets.' 
@@ -82,24 +74,19 @@ app.post('/api/auth/verify-otp', async (req, res) => {
   const { email, code } = req.body;
   const stored = otps.get(email);
   if (stored && stored.code === code && stored.expiry > Date.now()) {
-    // Keep it in memory until registration is complete or use a verified flag
     return res.json({ success: true });
   }
-  res.status(400).json({ error: 'Invalid or expired OTP. Please try again.' });
+  res.status(400).json({ error: 'Invalid or expired OTP.' });
 });
 
 app.post('/api/ask', async (req, res) => {
   const { question } = req.body;
-  const memory = await fs.readJson(MEMORY_FILE);
+  let memory = { entries: [] };
+  try { memory = await fs.readJson(MEMORY_FILE); } catch(e) {}
   
   const existing = memory.entries.find((e: any) => e.question.toLowerCase() === question.toLowerCase());
-  if (existing) {
-    existing.usageCount = (existing.usageCount || 1) + 1;
-    await fs.writeJson(MEMORY_FILE, memory);
-    return res.json({ answer: existing.answer, cached: true });
-  }
+  if (existing) return res.json({ answer: existing.answer, cached: true });
 
-  // Call AI
   try {
     const result = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -118,27 +105,4 @@ app.post('/api/ask', async (req, res) => {
   }
 });
 
-app.get('/api/memory', async (req, res) => {
-  const memory = await fs.readJson(MEMORY_FILE);
-  res.json({ count: memory.entries.length, lastBackup: memory.entries.length > 0 ? memory.entries[memory.entries.length - 1].timestamp : null });
-});
-
-app.post('/api/export', async (req, res) => {
-  const memory = await fs.readJson(MEMORY_FILE);
-  res.json(memory.entries);
-});
-
-async function startServer() {
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
-    app.use(express.static('dist'));
-  }
-  
-  app.listen(PORT, '0.0.0.0', () => console.log('Server running on port 3000'));
-}
-startServer();
+export default app;
