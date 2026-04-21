@@ -16,7 +16,9 @@ interface Message {
 export default function PrivateChat({ chatId, otherUser, onBack }: { chatId: string, otherUser: any, onBack: () => void }) {
   const { user } = useAppStore();
   const [messages, setMessages] = useState<Message[]>([]);
+  const lastMessagesLength = React.useRef(0);
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const [text, setText] = useState('');
   const [chatData, setChatData] = useState<any>(null);
   const [showOptions, setShowOptions] = useState(false);
@@ -24,11 +26,16 @@ export default function PrivateChat({ chatId, otherUser, onBack }: { chatId: str
 
   // Auto-scroll to bottom
   useEffect(() => {
-    if (scrollRef.current) {
-        scrollRef.current.scrollTo({
-            top: scrollRef.current.scrollHeight,
-            behavior: 'smooth'
-        });
+    if (messages.length > 0) {
+        const isNewMessage = messages.length > lastMessagesLength.current;
+        const behavior = (isNewMessage && lastMessagesLength.current > 0) ? 'smooth' : 'auto';
+        
+        const timeoutId = setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior });
+        }, 50);
+        
+        lastMessagesLength.current = messages.length;
+        return () => clearTimeout(timeoutId);
     }
   }, [messages]);
 
@@ -73,6 +80,16 @@ export default function PrivateChat({ chatId, otherUser, onBack }: { chatId: str
   const isBlocked = chatData?.blockedBy === (chatData?.participants?.find((p: string) => p !== user?.uid));
   const IBlockedThem = chatData?.blockedBy === user?.uid;
 
+  const isOtherUserOnline = () => {
+    if (!otherUserPresence) return false;
+    if (!otherUserPresence.isOnline) return false;
+    
+    // Heartbeat check: If lastSeen was more than 2 minutes ago, consider offline
+    const lastSeen = otherUserPresence.lastSeen ? new Date(otherUserPresence.lastSeen).getTime() : 0;
+    const now = Date.now();
+    return (now - lastSeen) < 120000; // 2 minutes
+  };
+
   const handleBlock = async () => {
     const targetBlockState = !IBlockedThem ? user?.uid : null;
     await setDoc(doc(db, 'private_chats', chatId), { blockedBy: targetBlockState }, { merge: true });
@@ -87,14 +104,32 @@ export default function PrivateChat({ chatId, otherUser, onBack }: { chatId: str
   };
 
   const sendMessage = async () => {
-    if (!text.trim() || isBlocked || IBlockedThem) return;
-    await addDoc(collection(db, 'private_chats', chatId, 'messages'), {
-        senderId: user?.uid,
+    if (!text.trim() || isBlocked || IBlockedThem || !user?.uid) return;
+    
+    const newMsg = {
+        id: 'temp-' + Date.now(),
+        senderId: user.uid,
         text,
         status: 'sent',
-        timestamp: new Date().toISOString()
-    });
+        timestamp: new Date().toISOString(),
+        isOptimistic: true
+    };
+    
+    // Optimistic Update
+    setMessages(prev => [...prev, newMsg]);
+    const messageText = text;
     setText('');
+
+    try {
+        await addDoc(collection(db, 'private_chats', chatId, 'messages'), {
+            senderId: user.uid,
+            text: messageText,
+            status: 'sent',
+            timestamp: new Date().toISOString()
+        });
+    } catch (e) {
+        console.error("Failed to send private message:", e);
+    }
   };
 
   return (
@@ -118,9 +153,9 @@ export default function PrivateChat({ chatId, otherUser, onBack }: { chatId: str
                         <ChevronDown size={14} className={`transition-transform text-zinc-500 ${showOptions ? 'rotate-180' : ''}`} />
                     </h2>
                     <div className="flex items-center gap-1">
-                        <div className={`w-1.5 h-1.5 rounded-full ${otherUserPresence?.isOnline ? 'bg-green-500' : 'bg-zinc-600'}`}></div>
+                        <div className={`w-1.5 h-1.5 rounded-full ${isOtherUserOnline() ? 'bg-green-500' : 'bg-zinc-600'}`}></div>
                         <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">
-                            {otherUserPresence?.isOnline ? 'Online' : 'Offline'}
+                            {isOtherUserOnline() ? 'Online' : 'Offline'}
                         </p>
                     </div>
                 </div>
@@ -159,7 +194,7 @@ export default function PrivateChat({ chatId, otherUser, onBack }: { chatId: str
           </AnimatePresence>
       </header>
       
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center p-10 opacity-30">
                 <MessageCircle size={60} className="mb-4 text-sky-200" />
@@ -190,6 +225,7 @@ export default function PrivateChat({ chatId, otherUser, onBack }: { chatId: str
                 </div>
             </div>
         ))}
+        <div ref={messagesEndRef} className="h-2" />
       </div>
 
       <div className="py-2.5 px-4 bg-zinc-900 border-t border-zinc-800 safe-bottom">

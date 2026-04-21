@@ -58,6 +58,8 @@ interface AppState {
   results: TestResult[];
   notes: Note[];
   starredQuestions: Question[];
+  mistakeVault: Question[];
+  leaderboard: { userId: string, displayName: string, points: number, lastUpdate: string }[];
   chatHistory: ChatMessage[];
   streak: number;
   lastLoginDate: string | null;
@@ -83,6 +85,9 @@ interface AppState {
   clearChatHistory: () => void;
   cleanupOldChatHistory: () => void;
   toggleStarQuestion: (question: Question) => void;
+  addToMistakeVault: (questions: Question[]) => void;
+  removeFromMistakeVault: (id: string) => void;
+  fetchLeaderboard: () => Promise<void>;
   updateStreak: () => void;
   setLastAnalyzedPhotoContext: (context: { name: string; summary: string; timestamp: string } | null) => void;
   setLastUploadedPhotoName: (name: string | null) => void;
@@ -96,6 +101,8 @@ export const useAppStore = create<AppState>()(
       results: [],
       notes: [],
       starredQuestions: [],
+      mistakeVault: [],
+      leaderboard: [],
       chatHistory: [],
       streak: 0,
       lastLoginDate: null,
@@ -106,11 +113,18 @@ export const useAppStore = create<AppState>()(
 
       setUser: (user) => set({ user }),
       setFullState: (data) => set((state) => ({ ...state, ...data })),
-      logout: () => set({ user: null, results: [], notes: [], starredQuestions: [], chatHistory: [], streak: 0 }),
+      logout: () => set({ user: null, results: [], notes: [], starredQuestions: [], mistakeVault: [], chatHistory: [], streak: 0 }),
       setTheme: (theme) => set({ theme }),
       addResult: (result) => set((state) => {
         const next = [...state.results, { ...result, explanations: {} }];
-        if (state.user) dataSync.saveResult(state.user.uid, result);
+        if (state.user) {
+            dataSync.saveResult(state.user.uid, result);
+            // Points: 50 for Major, 10 for Minor + score bonus
+            const bonus = Math.floor(result.score / 10);
+            const base = result.type === 'Major' ? 50 : 10;
+            const totalPoints = (get().streak * 5) + next.length * 10 + (result.score > 0 ? bonus : 0);
+            dataSync.updateLeaderboard(state.user.uid, state.user.email?.split('@')[0] || 'Aspirant', totalPoints);
+        }
         return { results: next };
       }),
       addExplanation: (testId, questionId, explanation) => set((state) => {
@@ -163,6 +177,24 @@ export const useAppStore = create<AppState>()(
         if (state.user) dataSync.saveStarredQuestion(state.user.uid, question);
         return { starredQuestions: [...state.starredQuestions, { ...question, isImportance: true }] };
       }),
+      addToMistakeVault: (questions) => set((state) => {
+        const existingIds = new Set(state.mistakeVault.map(q => q.id));
+        const newMistakes = questions.filter(q => !existingIds.has(q.id));
+        if (newMistakes.length === 0) return state;
+        
+        if (state.user) {
+            newMistakes.forEach(q => dataSync.saveMistake(state.user!.uid, q));
+        }
+        return { mistakeVault: [...state.mistakeVault, ...newMistakes] };
+      }),
+      removeFromMistakeVault: (id) => set((state) => {
+        if (state.user) dataSync.removeMistake(state.user.uid, id);
+        return { mistakeVault: state.mistakeVault.filter(q => q.id !== id) };
+      }),
+      fetchLeaderboard: async () => {
+        const data = await dataSync.getTopUsers(10);
+        set({ leaderboard: data });
+      },
       updateStreak: () => {
         // Streak follows the same 1 AM IST academic reset
         const academicDate = getISTAcademicDate();
@@ -171,7 +203,12 @@ export const useAppStore = create<AppState>()(
         if (lastDate !== todayId) {
           const newStreak = get().streak + 1;
           const userId = get().user?.uid;
-          if (userId) dataSync.saveProfile(userId, newStreak, todayId);
+          if (userId) {
+              dataSync.saveProfile(userId, newStreak, todayId);
+              // Update leaderboard on streak change
+              const totalPoints = (newStreak * 5) + get().results.length * 10;
+              dataSync.updateLeaderboard(userId, get().user?.email?.split('@')[0] || 'Aspirant', totalPoints);
+          }
           set({
             streak: newStreak,
             lastLoginDate: todayId

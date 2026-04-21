@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { initializeFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+
 const firebaseConfig = {
   apiKey: process.env.VITE_FIREBASE_API_KEY,
   authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -13,7 +14,12 @@ const firebaseConfig = {
 const databaseId = process.env.VITE_FIREBASE_DATABASE_ID;
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, databaseId);
+
+// Use initializeFirestore to enable force-long-polling for stable connection in proxy environments
+export const db = initializeFirestore(app, {
+    experimentalForceLongPolling: true,
+}, databaseId);
+
 export const auth = getAuth(app);
 
 async function testConnection() {

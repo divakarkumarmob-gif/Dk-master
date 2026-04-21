@@ -1,6 +1,6 @@
 import { db } from './firebase';
-import { doc, getDoc, setDoc, deleteDoc, collection, getDocs, addDoc, query, orderBy, where } from 'firebase/firestore';
-import { TestResult, Note, Question, ChatMessage } from '../store/useAppStore';
+import { doc, getDoc, setDoc, deleteDoc, collection, getDocs, addDoc, query, orderBy, where, onSnapshot, limit, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { TestResult, Note, Question, ChatMessage, AuthUser } from '../store/useAppStore';
 
 export const dataSync = {
   async saveResult(userId: string, result: TestResult) {
@@ -340,27 +340,42 @@ export const dataSync = {
     if (!navigator.onLine) return null;
 
     try {
-        const resultsSnap = await getDocs(collection(db, 'users', userId, 'results'));
-        const notesSnap = await getDocs(collection(db, 'users', userId, 'notes'));
-        const starredSnap = await getDocs(collection(db, 'users', userId, 'starred'));
-        const chatSnap = await getDocs(collection(db, 'users', userId, 'chat'));
-        const profileSnap = await getDoc(doc(db, 'users', userId));
+        const fetchCollection = async (name: string) => {
+          try {
+            const snap = await getDocs(collection(db, 'users', userId, name));
+            return snap.docs.map(d => ({ ...d.data(), id: d.id }));
+          } catch (e) {
+            console.warn(`Failed to fetch ${name}:`, e);
+            return [];
+          }
+        };
+
+        const results = await fetchCollection('results');
+        const notes = await fetchCollection('notes');
+        const starredQuestions = await fetchCollection('starred');
+        const mistakeVault = await fetchCollection('mistakes');
+        const chatHistorySnap = await fetchCollection('chat');
+        
+        let profile = null;
+        try {
+          const profileSnap = await getDoc(doc(db, 'users', userId));
+          if (profileSnap.exists()) {
+            profile = profileSnap.data() as { streak: number, lastLoginDate: string | null };
+          }
+        } catch (e) {
+          console.warn("Failed to fetch profile:", e);
+        }
 
         return {
-          results: resultsSnap.docs.map(d => d.data() as TestResult),
-          notes: notesSnap.docs.map(d => d.data() as Note),
-          starredQuestions: starredSnap.docs.map(d => d.data() as Question),
-          chatHistory: chatSnap.docs.map(d => {
-            const data = d.data() as ChatMessage;
-            return { ...data, id: data.id || d.id };
-          }).sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()),
-          profile: profileSnap.exists() ? profileSnap.data() as { streak: number, lastLoginDate: string | null } : null
+          results: results as TestResult[],
+          notes: notes as Note[],
+          starredQuestions: starredQuestions as Question[],
+          mistakeVault: mistakeVault as Question[],
+          chatHistory: (chatHistorySnap as ChatMessage[]).sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()),
+          profile
         };
     } catch (e: any) {
-        if (e?.code === 'unavailable' || e?.message?.includes('offline')) {
-            return null;
-        }
-        console.error("Failed to fetch sync data:", e);
+        console.error("Fatal error in sync sync:", e);
         return null;
     }
   },
@@ -389,5 +404,131 @@ export const dataSync = {
       } catch (e) {
           console.error("Failed to mark messages as seen:", e);
       }
+  },
+
+  async updateLeaderboard(userId: string, displayName: string, points: number) {
+    try {
+        const lbRef = doc(db, 'leaderboard', userId);
+        await setDoc(lbRef, {
+            userId,
+            displayName,
+            points,
+            lastUpdate: new Date().toISOString()
+        }, { merge: true });
+    } catch (e) {
+        console.error("Failed to update leaderboard:", e);
+    }
+  },
+
+  async getTopUsers(limitCount: number = 10) {
+    try {
+        // Simplified query to avoid index requirement for multiple orderBys
+        const q = query(collection(db, 'leaderboard'), orderBy('points', 'desc'), where('points', '>', 0));
+        const snap = await getDocs(q);
+        return snap.docs.slice(0, limitCount).map(d => d.data() as { userId: string, displayName: string, points: number, lastUpdate: string });
+    } catch (e: any) {
+        if (!e?.message?.includes('permissions')) {
+            console.warn("Leaderboard fetch deferred:", e);
+        }
+        return [];
+    }
+  },
+
+  async saveMistake(userId: string, question: Question) {
+    try {
+        const docRef = doc(db, 'users', userId, 'mistakes', question.id);
+        await setDoc(docRef, { ...question, addedAt: new Date().toISOString() });
+    } catch (e) {
+        console.error("Failed to sync mistake:", e);
+    }
+  },
+
+  async removeMistake(userId: string, questionId: string) {
+    try {
+        const docRef = doc(db, 'users', userId, 'mistakes', questionId);
+        await deleteDoc(docRef);
+    } catch (e) {
+        console.error("Failed to remove mistake from sync:", e);
+    }
+  },
+
+  // --- Battle Mode (Duel) Logic ---
+
+  async findAvailableDuel() {
+      try {
+          const q = query(
+              collection(db, 'duels'), 
+              where('status', '==', 'waiting'), 
+              orderBy('createdAt', 'desc'),
+              limit(1)
+          );
+          const snap = await getDocs(q);
+          if (snap.empty) return null;
+          return { id: snap.docs[0].id, ...snap.docs[0].data() };
+      } catch (e) {
+          console.error("Matchmaking collision:", e);
+          return null;
+      }
+  },
+
+  async createDuel(user: { uid: string, displayName: string | null }, questions: any[]) {
+      try {
+          const docRef = await addDoc(collection(db, 'duels'), {
+              status: 'waiting',
+              createdAt: serverTimestamp(),
+              questions,
+              players: {
+                  [user.uid]: {
+                      name: user.displayName || 'Anonymous Aspirant',
+                      score: 0,
+                      currentIdx: 0,
+                      finished: false
+                  }
+              }
+          });
+          return docRef.id;
+      } catch (e) {
+          console.error("Duel initialization failed:", e);
+          return null;
+      }
+  },
+
+  async joinDuel(duelId: string, user: { uid: string, displayName: string | null }) {
+      try {
+          const docRef = doc(db, 'duels', duelId);
+          await updateDoc(docRef, {
+              status: 'active',
+              [`players.${user.uid}`]: {
+                  name: user.displayName || 'Anonymous Ninja',
+                  score: 0,
+                  currentIdx: 0,
+                  finished: false
+              }
+          });
+      } catch (e) {
+          console.error("Failed to join battle:", e);
+      }
+  },
+
+  async updateDuelProgress(duelId: string, userId: string, score: number, currentIdx: number, finished: boolean = false) {
+      try {
+          const docRef = doc(db, 'duels', duelId);
+          await updateDoc(docRef, {
+              [`players.${userId}.score`]: score,
+              [`players.${userId}.currentIdx`]: currentIdx,
+              [`players.${userId}.finished`]: finished
+          });
+      } catch (e) {
+          console.error("Syncing progress failed:", e);
+      }
+  },
+
+  subscribeToDuel(duelId: string, callback: (data: any) => void) {
+      const docRef = doc(db, 'duels', duelId);
+      return onSnapshot(docRef, (doc) => {
+          if (doc.exists()) {
+              callback({ id: doc.id, ...doc.data() });
+          }
+      });
   }
 };

@@ -54,7 +54,7 @@ export default function InstallPwa() {
               <Smartphone size={24} />
             </div>
             <div className="flex-1">
-              <h3 className="font-black text-sm">Install StudyMaster</h3>
+              <h3 className="font-black text-sm">Install NEET Prep</h3>
               <p className="text-[10px] opacity-90 font-bold">Add to your home screen for a full app experience!</p>
             </div>
             <div className="flex items-center gap-2">

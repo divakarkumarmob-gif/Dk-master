@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Calendar, 
   Clock, 
@@ -8,10 +8,31 @@ import {
   CheckCircle2, 
   Box,
   Brain,
-  Zap,
-  Quote
+  Quote,
+  Trophy,
+  Headphones,
+  Play,
+  Pause,
+  StopCircle,
+  Terminal,
+  BookOpen,
+  Target
 } from 'lucide-react';
 import { useAppStore, getDailyChapters } from '../store/useAppStore';
+import { Leaderboard } from './Leaderboard';
+import { AudioRevision } from './AudioRevision';
+import { NCERTAudioLibrary } from './NCERTAudioLibrary';
+import { RapidFireQuiz } from './RapidFireQuiz';
+import { BattleArena } from './BattleArena';
+import { ConceptBot } from './ConceptBot';
+import { ErrorFixTest } from './ErrorFixTest';
+import { VisualDecoder } from './VisualDecoder';
+import { PlannerBot } from './PlannerBot';
+import { ConfidenceMap } from './ConfidenceMap';
+import { ActiveRecallBot } from './ActiveRecallBot';
+import { VideoVault } from './VideoVault';
+import { StudyPulse } from './StudyPulse';
+import { SavedCheatSheets } from './SavedCheatSheets';
 import { cn } from '../lib/utils';
 import { differenceInDays, format } from 'date-fns';
 import { geminiService } from '../services/gemini';
@@ -26,6 +47,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
   const { streak, results, user } = useAppStore();
   const [quote, setQuote] = useState("The only way to do great work is to love what you do.");
   const [dailyData, setDailyData] = useState(getDailyChapters());
+  const [activeHub, setActiveHub] = useState<'main' | 'study'>('main');
   
   const targetDate = new Date('2026-05-03');
   const daysLeft = differenceInDays(targetDate, new Date());
@@ -52,103 +74,166 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
   };
 
   return (
-    <div className="space-y-8 py-6">
+    <div className="space-y-6 py-6 pb-20">
       {/* Date & Countdown */}
-      <div className="flex justify-between items-center px-2">
+      <div className="flex justify-between items-center px-4">
         <span className="text-sm font-medium text-text-muted">{format(new Date(), 'MMMM dd, yyyy')}</span>
         <span className="bg-orange-accent text-white px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase">
           {daysLeft > 0 ? daysLeft : 0} DAYS REMAINING
         </span>
       </div>
 
-      <div className="px-2">
-        <h2 className="text-2xl font-extrabold text-text-main">Hello, {user?.email?.split('@')[0] || 'Aspirant'}!</h2>
+      {/* Tab Navigation Icons/Boxes */}
+      <div className="grid grid-cols-2 gap-3 px-4 sticky top-0 z-40 py-3">
+        <motion.button 
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setActiveHub('main')}
+            className={cn(
+                "py-2.5 px-4 rounded-[18px] border-2 transition-all flex items-center justify-center gap-3",
+                activeHub === 'main' 
+                    ? "bg-white dark:bg-zinc-800 border-orange-accent shadow-lg shadow-orange-500/10" 
+                    : "bg-zinc-800/50 border-transparent opacity-60"
+            )}
+        >
+            <Box size={18} className={activeHub === 'main' ? "text-orange-accent" : "text-text-muted"} />
+            <span className="text-[9px] font-black uppercase tracking-widest leading-none">Main Hub</span>
+        </motion.button>
+        <motion.button 
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setActiveHub('study')}
+            className={cn(
+                "py-2.5 px-4 rounded-[18px] border-2 transition-all flex items-center justify-center gap-3",
+                activeHub === 'study' 
+                    ? "bg-zinc-950 border-emerald-500 shadow-lg shadow-emerald-500/10" 
+                    : "bg-zinc-800/50 border-transparent opacity-60"
+            )}
+        >
+            <Brain size={18} className={activeHub === 'study' ? "text-emerald-400" : "text-text-muted"} />
+            <span className={cn("text-[9px] font-black uppercase tracking-widest leading-none", activeHub === 'study' ? "text-white" : "text-text-muted")}>Study Hub</span>
+        </motion.button>
       </div>
 
-      {/* Streak info */}
-      <div className="grid grid-cols-2 gap-3 px-2">
-        <div className="bg-[#E8E8E1] p-4 rounded-xl text-center">
-          <span className="block text-lg font-black text-olive-primary">{streak}</span>
-          <span className="text-[10px] uppercase font-bold text-text-muted tracking-tight">Day Streak</span>
-        </div>
-        <div className="bg-[#E8E8E1] p-4 rounded-xl text-center">
-          <span className="block text-lg font-black text-olive-primary">
-            {results.length > 0 ? (results.reduce((acc, r) => acc + r.score, 0) / results.length).toFixed(0) : 0}
-          </span>
-          <span className="text-[10px] uppercase font-bold text-text-muted tracking-tight">Avg Score</span>
-        </div>
-      </div>
-
-      {/* Daily Chapters */}
-      <div className="space-y-4 px-2">
-        <div className="flex justify-between items-center">
-          <h2 className="text-lg font-display font-bold flex items-center gap-2 text-olive-dark">
-            <Brain size={20} className="text-orange-accent" />
-            Daily Targets
-          </h2>
-          <span className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Sync at 1 AM IST</span>
-        </div>
-
-        {dailyData.isSunday ? (
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => onStartTest({ id: 'major-' + Date.now(), type: 'Major' })}
-            className="w-full relative overflow-hidden p-8 rounded-2xl flex items-center justify-between shadow-xl border border-green-500"
+      <AnimatePresence mode="wait">
+        {activeHub === 'main' ? (
+          <motion.div 
+            key="main-hub"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 10 }}
+            className="space-y-10"
           >
-            {/* Gradient Background */}
-            <div className="absolute inset-0 bg-gradient-to-r from-teal-500 via-emerald-600 to-green-700"></div>
-            
-            {/* Animation particles */}
-            <div className="absolute inset-0 z-0 overflow-hidden">
-                {[...Array(6)].map((_, i) => (
-                    <motion.div
-                        key={i}
-                        className="absolute text-white/30"
-                        animate={{ 
-                            top: ["100%", "-20%"],
-                            left: [`${Math.random() * 100}%`, `${Math.random() * 100}%`],
-                            scale: [0, 1, 0]
-                        }}
-                        transition={{ 
-                            duration: 4 + Math.random() * 2,
-                            repeat: Infinity,
-                            delay: i * 0.5
-                        }}
-                    >
-                        <Sparkles size={20} />
-                    </motion.div>
-                ))}
-            </div>
+            {/* Operational Base Content - No Outer Box */}
+            <div className="px-4 space-y-8">
+                <div className="space-y-1">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-accent">Operational Greeting</p>
+                    <h2 className="text-xl font-black text-text-main dark:text-white uppercase tracking-tight">Hello, {user?.email?.split('@')[0] || 'Aspirant'}!</h2>
+                </div>
 
-            <div className="text-left relative z-10 text-white">
-              <h4 className="text-2xl font-display font-black tracking-tight uppercase">SUNDAY FULL TEST</h4>
-              <p className="text-xs opacity-90 font-medium tracking-wide">Calibrate your full NEET potential</p>
+                <StudyPulse />
+
+                {/* Streak row */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white dark:bg-zinc-900 p-4 rounded-3xl text-center shadow-sm border border-line dark:border-white/5">
+                    <span className="block text-xl font-black text-olive-primary">{streak}</span>
+                    <span className="text-[9px] uppercase font-bold text-text-muted tracking-tight">Day Streak</span>
+                  </div>
+                  <div className="bg-white dark:bg-zinc-900 p-4 rounded-3xl text-center shadow-sm border border-line dark:border-white/5">
+                    <span className="block text-xl font-black text-olive-primary">
+                      {results.length > 0 ? (results.reduce((acc, r) => acc + r.score, 0) / results.length).toFixed(0) : 0}
+                    </span>
+                    <span className="text-[9px] uppercase font-bold text-text-muted tracking-tight">Avg Score</span>
+                  </div>
+                </div>
+
+                <PlannerBot />
+
+                <ActiveRecallBot />
+
+                {/* Daily Chapters */}
+                <div className="space-y-4">
+                  <h2 className="text-base font-black flex items-center gap-2 text-olive-dark dark:text-white uppercase tracking-widest px-1">
+                    <Target size={18} className="text-orange-accent" />
+                    Today's Goals
+                  </h2>
+                  {dailyData.isSunday ? (
+                    <button onClick={() => onStartTest({ id: 'major-' + Date.now(), type: 'Major' })} className="w-full relative overflow-hidden p-6 rounded-[32px] flex items-center justify-between bg-gradient-to-r from-teal-500 to-green-700 text-white shadow-xl">
+                        <span className="text-lg font-black uppercase">Start Full Test</span>
+                        <ChevronRight size={20} />
+                    </button>
+                  ) : (
+                    <div className="grid gap-3">
+                       {Object.entries(dailyData.chapters).map(([subject, chapter]) => (
+                        <ChapterCard 
+                          key={subject}
+                          subject={subject}
+                          chapter={chapter as string}
+                          completed={hasCompletedTest(subject, chapter as string)}
+                          onClick={() => onStartTest({ id: `minor-${subject}-${Date.now()}`, type: 'Minor', subject, chapter: chapter as string })}
+                        />
+                       ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Podcast Section */}
+                <AudioRevision showCompact={true} />
             </div>
-            <ChevronRight size={32} className="relative z-10 text-white" />
-          </motion.button>
+          </motion.div>
         ) : (
-          <div className="grid gap-4">
-            {Object.entries(dailyData.chapters).map(([subject, chapter]) => (
-              <ChapterCard 
-                key={subject}
-                subject={subject}
-                chapter={chapter as string}
-                completed={hasCompletedTest(subject, chapter as string)}
-                onClick={() => onStartTest({ 
-                  id: `minor-${subject}-${Date.now()}`, 
-                  type: 'Minor', 
-                  subject, 
-                  chapter: chapter as string
-                })}
-              />
-            ))}
-          </div>
+          <motion.div 
+            key="study-hub"
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -10 }}
+            className="space-y-10 px-4 pb-12"
+          >
+            {/* Study Hub Content - No Outer Box */}
+            <div className="relative">
+                <div className="mb-8">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-1">Knowledge Nexus</p>
+                    <h2 className="text-xl font-black text-text-main dark:text-white uppercase tracking-tight">Active Learning Tools</h2>
+                </div>
+                
+                <div className="space-y-8 relative z-10">
+                  <ConceptBot />
+                  <SavedCheatSheets />
+                  <div className="pt-4 border-t border-white/5">
+                    <ConfidenceMap />
+                  </div>
+                  <div className="pt-4 border-t border-white/5">
+                    <VisualDecoder />
+                  </div>
+                  <div className="pt-4 border-t border-white/5">
+                    <ErrorFixTest onStartTest={onStartTest} />
+                  </div>
+                  <div className="pt-4 border-t border-white/5">
+                    <BattleArena />
+                  </div>
+                  <div className="pt-4 border-t border-white/5">
+                    <VideoVault />
+                  </div>
+                  <div className="shadow-lg shadow-purple-500/5">
+                    <NCERTAudioLibrary />
+                  </div>
+                  <div className="shadow-lg shadow-emerald-500/5">
+                    <RapidFireQuiz />
+                  </div>
+                </div>
+            </div>
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
 
-      {/* Daily Quote at Bottom */}
-      <div className="px-2 pt-4">
+      <div className="px-4 space-y-8">
+        {/* Global Sections */}
+        <div className="space-y-4">
+            <h2 className="text-lg font-display font-bold flex items-center gap-2 text-olive-dark dark:text-white uppercase tracking-widest">
+                <Trophy size={20} className="text-yellow-500" />
+                Elite Ranking
+            </h2>
+            <Leaderboard />
+        </div>
+
         <div className="quote-box">
           <p className="text-base italic leading-relaxed font-serif mb-3 text-olive-dark">"{quote}"</p>
           <div className="flex justify-between items-center">
@@ -156,12 +241,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
             <p className="text-[10px] uppercase tracking-widest font-black text-orange-accent/50">powered by dk</p>
           </div>
         </div>
-      </div>
 
-      {/* Footer Branding */}
-      <div className="text-center pb-8 pt-4">
-        <h1 className="text-lg font-display font-bold text-olive-primary opacity-40">StudyMaster</h1>
-        <p className="text-[9px] uppercase font-bold tracking-[0.2em] text-text-muted opacity-30">Learn & Connect</p>
+        {/* Footer */}
+        <div className="text-center pb-8 pt-4">
+          <h1 className="text-lg font-display font-bold text-olive-primary opacity-40">NEET Prep</h1>
+          <p className="text-[9px] uppercase font-bold tracking-[0.2em] text-text-muted opacity-30">Learn & Connect</p>
+        </div>
       </div>
 
       <VoiceAI />

@@ -10,6 +10,11 @@ service cloud.firestore {
     function existing() { return resource.data; }
     function isValidId(id) { return id is string && id.size() <= 128; }
 
+    function isValidQuestion(data) {
+      return data.id is string && data.text is string && data.options is list && data.options.size() == 4 && 
+             data.correctAnswer is int && data.subject is string && data.chapter is string;
+    }
+
     // Default Deny
     match /{document=**} {
       allow read, write: if false;
@@ -30,6 +35,10 @@ service cloud.firestore {
       }
       match /starred/{questionId} {
         allow read, write: if isOwner(userId);
+      }
+      match /mistakes/{mistakeId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId) && (request.method == 'delete' || isValidQuestion(incoming()));
       }
       match /chat/{chatId} {
         allow read, write: if isOwner(userId);
@@ -79,9 +88,20 @@ service cloud.firestore {
       allow update: if isAdmin();
     }
 
+    match /leaderboard/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId);
+    }
+
     match /interactions/{interactionId} {
       allow read: if isOwner(resource.data.userId);
       allow create: if isOwner(incoming().userId);
+    }
+
+    match /duels/{duelId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (request.auth.uid in existing().players.keys() || existing().status == 'waiting');
     }
 
     match /reports/{reportId} {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useDragControls, useAnimation } from 'motion/react';
-import { Mic, MicOff, X, Volume2, Sparkles, Loader2, Trash2, History } from 'lucide-react';
+import { Mic, MicOff, X, Volume2, Sparkles, Loader2, Trash2, History, Camera, Image as ImageIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { geminiService } from '../services/gemini';
 import { useAppStore, getDailyChapters } from '../store/useAppStore';
@@ -9,13 +9,18 @@ export const VoiceAI: React.FC = () => {
   const { streak, results, user, addChatMessage, deleteChatMessage, clearChatHistory, chatHistory, lastAnalyzedPhotoContext, lastUploadedPhotoName } = useAppStore();
   const [isOpen, setIsOpen] = useState(false);
   const [showLabel, setShowLabel] = useState(false);
-  const [mode, setMode] = useState<'voice' | 'text' | 'history'>('voice');
+  const [mode, setMode] = useState<'voice' | 'text' | 'mentor' | 'history'>('voice');
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [response, setResponse] = useState('');
+  const [displayedResponse, setDisplayedResponse] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [textInput, setTextInput] = useState('');
+  const [isLooping, setIsLooping] = useState(false);
+  const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const responseEndRef = useRef<HTMLDivElement>(null);
   const synthesisRef = useRef<SpeechSynthesisUtterance | null>(null);
   const labelTimerRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -23,12 +28,81 @@ export const VoiceAI: React.FC = () => {
   const constraintsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Initial position
-    controls.set({ x: 20, y: window.innerHeight - 150 });
+    // Initial position - Bottom right but above the nav bar
+    controls.set({ x: window.innerWidth - 80, y: window.innerHeight - 180 });
     return () => {
       if (labelTimerRef.current) clearTimeout(labelTimerRef.current);
     };
   }, [controls]);
+
+  // Auto-scroll response
+  useEffect(() => {
+    if (displayedResponse && responseEndRef.current) {
+        responseEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [displayedResponse]);
+
+  // Typing effect
+  useEffect(() => {
+    if (!response) {
+      setDisplayedResponse('');
+      return;
+    }
+    
+    let index = 0;
+    setDisplayedResponse('');
+    const interval = setInterval(() => {
+      setDisplayedResponse((prev) => prev + response.charAt(index));
+      index++;
+      if (index >= response.length) clearInterval(interval);
+    }, 20);
+
+    return () => clearInterval(interval);
+  }, [response]);
+
+  const handleImageAnalysis = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsAnalyzingImage(true);
+    setResponse('');
+    setDisplayedResponse('');
+    setTranscript('Scanning image...');
+
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Data = (reader.result as string).split(',')[1];
+        const result = await geminiService.solveDoubt("", undefined, {
+          data: base64Data,
+          mimeType: file.type
+        });
+        
+        if (result) {
+          setResponse(result);
+          addChatMessage({ 
+            id: Date.now().toString(), 
+            role: 'user', 
+            text: `[IMAGE SCAN]: ${file.name}`, 
+            timestamp: new Date().toISOString() 
+          });
+          addChatMessage({ 
+            id: (Date.now() + 1).toString(), 
+            role: 'ai', 
+            text: result, 
+            timestamp: new Date().toISOString() 
+          });
+          speak(result);
+        }
+        setIsAnalyzingImage(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Image analysis failed", error);
+      setResponse("Image scan fail ho gaya. Kripya dubaara try karein.");
+      setIsAnalyzingImage(false);
+    }
+  };
 
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -36,7 +110,7 @@ export const VoiceAI: React.FC = () => {
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = false;
       recognitionRef.current.interimResults = false;
-      recognitionRef.current.lang = 'en-US';
+      recognitionRef.current.lang = 'hi-IN'; // Better support for Hinglish
 
       recognitionRef.current.onresult = (event: any) => {
         const last = event.results.length - 1;
@@ -47,18 +121,34 @@ export const VoiceAI: React.FC = () => {
 
       recognitionRef.current.onend = () => {
         setIsListening(false);
+        // If looping but not processing/speaking, restart listening
+        if (isLooping && !isProcessing && !window.speechSynthesis.speaking) {
+            recognitionRef.current?.start();
+            setIsListening(true);
+        }
       };
 
       recognitionRef.current.onerror = (event: any) => {
         console.error('Speech recognition error', event.error);
         setIsListening(false);
+        if (event.error === 'no-speech' && isLooping) {
+            // Silently restart if looping
+            setTimeout(() => {
+                if (isLooping) {
+                    recognitionRef.current?.start();
+                    setIsListening(true);
+                }
+            }, 100);
+        }
       };
     }
-  }, []);
+  }, [isLooping, isProcessing]);
 
   const processVoiceCommand = async (text: string) => {
+    if (!text.trim()) return;
     setIsProcessing(true);
     setResponse('');
+    setDisplayedResponse('');
     
     // Construct rich context for the AI
     const daily = getDailyChapters();
@@ -142,6 +232,8 @@ export const VoiceAI: React.FC = () => {
       - Sections: Home (Daily targets), AI Solver (Doubts), Analysis (Stats), Vault (Notes/Starred).
       - Test System: Minor (Chapter wise), Major (Full Sunday tests).
       - Marks Improvement: AI analyzes patterns in Analysis tab to suggest weak topics.
+      
+      ${mode === 'mentor' ? 'ROLE: Elite NEET Subject Matter Expert. Be extremely supportive, clear, and concise. Explain like a personal teacher. Use Hinglish.' : ''}
     `;
 
     try {
@@ -161,20 +253,32 @@ export const VoiceAI: React.FC = () => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.1; // Slightly faster for human feel
+      utterance.rate = 1.0; 
       utterance.pitch = 1.0;
-      utterance.lang = 'en-IN'; // Indian English/Hinglish feel
+      utterance.lang = 'hi-IN'; // Hindi voice often sounds better for Hinglish content
+      
+      utterance.onend = () => {
+        if (isLooping) {
+            setIsListening(true);
+            recognitionRef.current?.start();
+        }
+      };
+
       synthesisRef.current = utterance;
       window.speechSynthesis.speak(utterance);
     }
   };
 
   const toggleListening = () => {
-    if (isListening) {
+    if (isListening || isLooping) {
+      setIsLooping(false);
       recognitionRef.current?.stop();
+      window.speechSynthesis.cancel();
+      setIsListening(false);
     } else {
       setTranscript('');
       setResponse('');
+      setIsLooping(true);
       recognitionRef.current?.start();
       setIsListening(true);
     }
@@ -183,6 +287,7 @@ export const VoiceAI: React.FC = () => {
   const closePortal = () => {
     setIsOpen(false);
     setIsListening(false);
+    setIsLooping(false);
     recognitionRef.current?.stop();
     window.speechSynthesis.cancel();
   };
@@ -198,9 +303,20 @@ export const VoiceAI: React.FC = () => {
 
   const handleDragEnd = (_: any, info: any) => {
     const screenWidth = window.innerWidth;
-    const snapX = info.point.x > screenWidth / 2 ? screenWidth - 75 : 15;
+    const screenHeight = window.innerHeight;
+    const snapX = info.point.x > screenWidth / 2 ? screenWidth - 80 : 20;
+    
+    // Ensure it doesn't get stuck in the bottom bar (approx 72px + padding)
+    let snapY = info.point.y;
+    if (snapY > screenHeight - 160) {
+      snapY = screenHeight - 180;
+    } else if (snapY < 40) {
+      snapY = 60;
+    }
+
     controls.start({
       x: snapX,
+      y: snapY,
       transition: { type: 'spring', stiffness: 300, damping: 20 }
     });
   };
@@ -212,7 +328,12 @@ export const VoiceAI: React.FC = () => {
           {!isOpen && (
             <motion.div
               drag
-              dragConstraints={constraintsRef}
+              dragConstraints={{
+                top: 40,
+                left: 0,
+                right: window.innerWidth - 60,
+                bottom: window.innerHeight - 160
+              }}
               dragElastic={0.05}
               dragMomentum={false}
               animate={controls}
@@ -315,12 +436,12 @@ export const VoiceAI: React.FC = () => {
 
                 {/* Toggle UI */}
                 <div className="flex bg-white/10 p-1 rounded-full mb-4 relative z-10">
-                  {['voice', 'text', 'history'].map((m) => (
+                  {['voice', 'text', 'mentor', 'history'].map((m) => (
                     <button
                       key={m}
-                      onClick={() => setMode(m as 'voice' | 'text' | 'history')}
+                      onClick={() => setMode(m as 'voice' | 'text' | 'mentor' | 'history')}
                       className={cn(
-                        "flex-1 py-1 text-[9px] font-black uppercase tracking-widest rounded-full transition-all",
+                        "flex-1 py-1 text-[8px] font-black uppercase tracking-widest rounded-full transition-all",
                         mode === m ? "bg-white text-blue-900" : "text-white/50"
                       )}
                     >
@@ -330,7 +451,7 @@ export const VoiceAI: React.FC = () => {
                 </div>
 
                 <div className="min-h-[140px] flex flex-col items-center justify-center text-center space-y-4 relative z-10">
-                  {mode === 'voice' ? (
+                  {mode === 'voice' || mode === 'mentor' ? (
                     isListening ? (
                     // ... (keep existing voice listening UI)
                     <div className="relative">
@@ -343,55 +464,76 @@ export const VoiceAI: React.FC = () => {
                       </motion.div>
                       <p className="text-[10px] font-black uppercase tracking-widest text-blue-400 mt-4 animate-pulse uppercase">Link Energized...</p>
                     </div>
-                  ) : isProcessing ? (
+                  ) : (isProcessing || isAnalyzingImage) ? (
                     <div className="space-y-4">
                       <Loader2 className="animate-spin text-purple-400 mx-auto" size={32} />
-                      <p className="text-[10px] font-black uppercase tracking-widest text-white/60">Scanning Neural Core...</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-white/60">
+                        {isAnalyzingImage ? 'Digitizing Question...' : 'Scanning Neural Core...'}
+                      </p>
                     </div>
-                  ) : transcript ? (
+                  ) : displayedResponse ? (
                     <div className="w-full space-y-3 px-2">
                        <div className="bg-white/5 rounded-xl p-3 border border-white/5">
-                        <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest mb-1 text-left opacity-50">Transcribed</p>
-                        <p className="text-xs font-bold text-white/80 italic text-left line-clamp-2">"{transcript}"</p>
+                        <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest mb-1 text-left opacity-50">Solution Engine</p>
+                        <p className="text-xs font-bold text-white/50 italic text-left line-clamp-1">{transcript || 'Image Solution'}</p>
                       </div>
                       <div className="h-px bg-white/5 w-1/2 mx-auto"></div>
-                      <motion.div
+                        <motion.div
                         initial={{ opacity: 0, y: 5 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="max-h-[160px] overflow-y-auto pr-2 custom-scrollbar text-sm font-display font-medium text-white leading-relaxed text-left"
+                        className="max-h-[200px] overflow-y-auto pr-2 custom-scrollbar text-sm font-display font-medium text-white leading-relaxed text-left"
                       >
-                        {response}
+                        {displayedResponse}
+                        <div ref={responseEndRef} />
                       </motion.div>
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      <div className="relative">
-                        <Sparkles size={32} className="text-blue-400 mx-auto animate-pulse" />
+                      <div className="relative cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                        <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center border-2 border-dashed border-white/20 hover:border-blue-400/50 transition-colors">
+                            <Camera size={32} className="text-blue-400 animate-pulse" />
+                        </div>
                         <motion.div 
                            animate={{ rotate: 360 }}
                            transition={{ duration: 10, repeat: Infinity, ease: 'linear' }}
-                           className="absolute inset-0 border-2 border-dashed border-white/10 rounded-full scale-150"
+                           className="absolute inset-0 border-2 border-dashed border-white/5 rounded-full scale-125"
                         />
                       </div>
                       <p className="text-xs font-bold text-white/70">
-                        Hello! Main aapki progress aur doubts sab jaanta hoon. Kuch help chahiye?
+                        Tap camera to Scan Question or speak to ask doubts!
                       </p>
+                      <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        onChange={handleImageAnalysis} 
+                        accept="image/*" 
+                        capture="environment" 
+                        className="hidden" 
+                      />
                     </div>
                   )
                   ) : mode === 'text' ? (
                     // Text Mode
-                    <div className="w-full space-y-3">
-                      <textarea
-                        value={textInput}
-                        onChange={(e) => setTextInput(e.target.value)}
-                        placeholder="Type doubt..."
-                        className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white text-xs h-20"
-                      />
+                    <div className="w-full space-y-4">
+                      <div className="relative group">
+                          <textarea
+                            value={textInput}
+                            onChange={(e) => setTextInput(e.target.value)}
+                            placeholder="Describe your doubt..."
+                            className="w-full bg-white/5 border border-white/20 rounded-2xl p-4 text-white text-sm h-32 focus:border-blue-500/50 focus:bg-white/10 transition-all outline-none resize-none placeholder:text-white/20"
+                          />
+                          <div className="absolute bottom-3 right-3 text-[8px] font-bold text-white/20 uppercase tracking-tighter">smart engine v3.1</div>
+                      </div>
                       <button 
-                        onClick={() => processVoiceCommand(textInput)}
-                        className="w-full bg-blue-500 py-2 rounded-xl text-white text-xs font-bold uppercase"
+                        onClick={() => {
+                            if(textInput.trim()) {
+                                processVoiceCommand(textInput);
+                                setTextInput('');
+                            }
+                        }}
+                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 py-3.5 rounded-2xl text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
                       >
-                        Submit Query
+                        Transmit Query
                       </button>
                     </div>
                   ) : (
@@ -439,21 +581,27 @@ export const VoiceAI: React.FC = () => {
                 </div>
 
                 <div className="pt-2">
-                  {mode === 'voice' && (
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={closePortal}
+                      className="p-3 bg-red-600/20 text-red-500 rounded-2xl hover:bg-red-600/40 transition-all border border-red-500/20"
+                    >
+                      <MicOff size={20} />
+                    </button>
                     <button
                       onClick={toggleListening}
                       disabled={isProcessing}
                       className={cn(
-                        "w-full py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-3 relative z-10",
-                        isListening
-                          ? "bg-white text-[#16213E] shadow-xl"
+                        "flex-1 py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-3 relative z-10",
+                        (isListening || isLooping)
+                          ? "bg-red-500 text-white shadow-xl animate-pulse"
                           : "bg-gradient-to-r from-[#2196F3] to-[#9C27B0] text-white shadow-lg shadow-purple-500/20 border border-white/10"
                       )}
                     >
-                      {isListening ? (
+                      {(isListening || isLooping) ? (
                         <>
                           <MicOff size={18} />
-                          Disconnect
+                          Stop Link
                         </>
                       ) : (
                         <>
@@ -462,7 +610,7 @@ export const VoiceAI: React.FC = () => {
                         </>
                       )}
                     </button>
-                  )}
+                  </div>
                 </div>
               </motion.div>
             </div>

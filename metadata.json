@@ -1,6 +1,6 @@
 {
-  "name": "StudyMaster",
-  "description": "Comprehensive StudyMaster app for student communication and learning.",
+  "name": "NEET Prep",
+  "description": "Comprehensive NEET preparation platform for students with AI-powered doubt solving and community learning.",
   "requestFramePermissions": ["microphone"],
   "majorCapabilities": []
 }

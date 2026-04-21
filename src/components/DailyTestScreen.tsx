@@ -17,7 +17,7 @@ import { geminiService } from '../services/gemini';
 import confetti from 'canvas-confetti';
 
 interface TestProps {
-  testConfig: { id: string; type: 'Minor' | 'Major'; subject?: string; chapter?: string };
+  testConfig: { id: string; type: 'Minor' | 'Major'; subject?: string; chapter?: string; isErrorFix?: boolean };
   onBack: () => void;
 }
 
@@ -39,7 +39,12 @@ export default function DailyTestScreen({ testConfig, onBack }: TestProps) {
     const initTest = async () => {
       try {
         let generatedQuestions: Question[] = [];
-        if (testConfig.type === 'Minor') {
+        if (testConfig.isErrorFix) {
+          const { mistakeVault } = useAppStore.getState();
+          const weakConcepts = mistakeVault.slice(-15).map(q => `${q.subject}: ${q.chapter}`).join(', ');
+          generatedQuestions = await geminiService.generateErrorFixQuestions(weakConcepts, 20);
+          setTimeLeft(25 * 60); // 25 mins
+        } else if (testConfig.type === 'Minor') {
           generatedQuestions = await geminiService.generateQuestions(testConfig.subject!, testConfig.chapter!, 30);
           setTimeLeft(30 * 60); // 30 mins
         } else {
@@ -97,13 +102,15 @@ export default function DailyTestScreen({ testConfig, onBack }: TestProps) {
 
   const handleSubmit = () => {
     if (submitted) return;
+    const { addToMistakeVault } = useAppStore.getState();
     setSubmitted(true);
     if (timerRef.current) clearInterval(timerRef.current);
 
-    // Calculate score
+    // Calculate score and collect mistakes
     let correct = 0;
     let wrong = 0;
     let unattempted = 0;
+    const mistakes: Question[] = [];
 
     questions.forEach((q, idx) => {
       if (userAnswers[idx] === null) {
@@ -112,8 +119,14 @@ export default function DailyTestScreen({ testConfig, onBack }: TestProps) {
         correct++;
       } else {
         wrong++;
+        mistakes.push(q);
       }
     });
+
+    // Save mistakes to vault
+    if (mistakes.length > 0) {
+      addToMistakeVault(mistakes);
+    }
 
     const totalMarks = (correct * 4) - (wrong * 1);
 

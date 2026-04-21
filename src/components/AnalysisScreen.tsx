@@ -14,9 +14,12 @@ import {
 import { useAppStore, TestResult } from '../store/useAppStore';
 import { cn } from '../lib/utils';
 import { format, differenceInMinutes, differenceInSeconds } from 'date-fns';
-import { ChevronRight, Filter, TrendingUp, AlertCircle, Info, Brain, CheckCircle2, Sparkles, Loader2, Clock, Star } from 'lucide-react';
+import { ChevronRight, Filter, TrendingUp, AlertCircle, Info, Brain, CheckCircle2, Sparkles, Loader2, Clock, Star, Flame, Zap, History as HistoryIcon } from 'lucide-react';
 import { geminiService } from '../services/gemini';
 import { formatTime } from '../lib/utils';
+import { MistakeVault } from './MistakeVault';
+import { SmartFlashcards } from './SmartFlashcards';
+import { RankPredictor } from './RankPredictor';
 
 const AnalysisScreen: React.FC = () => {
   const { results, theme } = useAppStore();
@@ -24,6 +27,7 @@ const AnalysisScreen: React.FC = () => {
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
   const [selectedResult, setSelectedResult] = useState<TestResult | null>(null);
+  const [view, setView] = useState<'archives' | 'vault'>('archives');
 
   const filteredResults = useMemo(() => {
     return results
@@ -59,12 +63,44 @@ const AnalysisScreen: React.FC = () => {
 
   return (
     <div className="space-y-8 py-6 pb-20">
-      <div className={cn("px-2", theme === 'dark' && "text-white")}>
-        <h2 className="text-xl font-display font-black text-olive-dark dark:text-white tracking-tight uppercase">Performance Hub</h2>
+      <div className={cn("px-2 flex justify-between items-center", theme === 'dark' && "text-white")}>
+        <h2 className="text-xl font-display font-black text-olive-dark dark:text-white tracking-tight uppercase">
+            {view === 'archives' ? 'Performance Hub' : 'Galti Sudhar Zone'}
+        </h2>
+        <div className="flex bg-[#E8E8E1] dark:bg-zinc-800 p-1 rounded-xl shadow-inner">
+            <button 
+                onClick={() => setView('archives')}
+                className={cn(
+                    "px-3 py-1.5 rounded-lg flex items-center gap-2 transition-all duration-300",
+                    view === 'archives' ? "bg-white dark:bg-zinc-700 shadow-md scale-105" : "opacity-40"
+                )}
+            >
+                <HistoryIcon size={14} className={view === 'archives' ? "text-olive-primary" : ""} />
+                <span className="text-[8px] font-black uppercase tracking-widest text-text-main dark:text-white">Archives</span>
+            </button>
+            <button 
+                onClick={() => setView('vault')}
+                className={cn(
+                    "px-3 py-1.5 rounded-lg flex items-center gap-2 transition-all duration-300",
+                    view === 'vault' ? "bg-orange-accent shadow-md scale-105" : "opacity-40"
+                )}
+            >
+                <Flame size={14} className={view === 'vault' ? "text-white" : ""} />
+                <span className={cn("text-[8px] font-black uppercase tracking-widest", view === 'vault' ? "text-white" : "text-text-main dark:text-white")}>Vault</span>
+            </button>
+        </div>
       </div>
 
-      {results.length > 0 ? (
+      {view === 'vault' ? (
+        <div className="px-2">
+            <MistakeVault />
+        </div>
+      ) : results.length > 0 ? (
         <>
+          <div className="px-2 pb-2">
+            <RankPredictor />
+          </div>
+
           <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-sm border border-line dark:border-white/10 mx-2">
             <div className="flex justify-between items-center mb-8">
               <div className="flex items-center gap-2">
@@ -142,6 +178,11 @@ const AnalysisScreen: React.FC = () => {
               )}
              </div>
              <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-40 h-40 bg-white/5 rounded-full blur-3xl"></div>
+          </div>
+
+          <div className="space-y-4 px-2">
+            <h3 className="text-[10px] uppercase font-black tracking-[0.2em] text-text-muted px-4 italic">Neural Reinforcement</h3>
+            <SmartFlashcards />
           </div>
 
            <div className="space-y-4 pt-4">

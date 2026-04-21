@@ -32,12 +32,45 @@
         "blockedBy": { "type": "string" }
       },
       "required": ["participants"]
+    },
+    "Question": {
+      "title": "Question",
+      "description": "NEET Question saved in Mistake Vault",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "options": { "type": "array", "items": { "type": "string" } },
+        "correctAnswer": { "type": "integer" },
+        "explanation": { "type": "string" },
+        "subject": { "type": "string" },
+        "chapter": { "type": "string" },
+        "addedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "text", "options", "correctAnswer", "subject", "chapter"]
+    },
+    "Duel": {
+      "title": "Duel",
+      "description": "Real-time multiplayer battle session",
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["waiting", "active", "completed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "questions": { "type": "array", "items": { "$ref": "Question" } },
+        "players": { "type": "object" },
+        "winner": { "type": "string" }
+      },
+      "required": ["status", "createdAt", "questions", "players"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "User",
       "description": "User profile with daily message metrics."
+    },
+    "/users/{userId}/mistakes/{mistakeId}": {
+      "schema": "Question",
+      "description": "Incorrect questions stored for review."
     },
     "/message_requests/{requestId}": {
       "schema": "MessageRequest",
@@ -46,6 +79,10 @@
     "/private_chats/{chatId}": {
       "schema": "PrivateChat",
       "description": "1-to-1 conversation messages."
+    },
+    "/duels/{duelId}": {
+      "schema": "Duel",
+      "description": "Live head-to-head quiz sessions."
     }
   }
 }

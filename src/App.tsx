@@ -33,6 +33,9 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
+    // Force Home tab on app launch as per user request
+    setActiveTab('home');
+    
     const timer = setTimeout(() => setShowSplash(false), 2000);
     return () => clearTimeout(timer);
   }, []);
@@ -66,6 +69,7 @@ export default function App() {
               results: cloudData.results || [],
               notes: cloudData.notes || [],
               starredQuestions: cloudData.starredQuestions || [],
+              mistakeVault: cloudData.mistakeVault || [],
               chatHistory: cloudData.chatHistory || [],
               streak: cloudData.profile?.streak ?? 0,
               lastLoginDate: cloudData.profile?.lastLoginDate ?? null
@@ -91,7 +95,6 @@ export default function App() {
     const handleUnload = () => {
         if (auth.currentUser) {
             const userRef = doc(db, 'users', auth.currentUser.uid);
-            // We use a simple doc update here as we can't easily use dataSync during unload
             setDoc(userRef, { isOnline: false }, { merge: true });
         }
     };
@@ -103,6 +106,18 @@ export default function App() {
     };
   }, []);
 
+  // Heartbeat Presence Effect
+  useEffect(() => {
+    if (!user?.uid) return;
+    
+    const interval = setInterval(async () => {
+        const { dataSync } = await import('./services/dataSync');
+        dataSync.updateUserPresence(user.uid, true);
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [user?.uid]);
+
   if (!user) {
     return <AuthScreen />;
   }
@@ -113,8 +128,7 @@ export default function App() {
 
   return (
     <div className={cn(
-        "min-h-screen safe-top", 
-        activeTab === 'chat' ? "h-screen border-b-[64px] border-transparent overflow-hidden" : "pb-20", 
+        "min-h-screen flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]", 
         theme === 'dark' ? 'dark' : ''
     )}>
       <AnimatePresence>
@@ -123,11 +137,11 @@ export default function App() {
       
       <InstallPwa />
 
-      <div className="h-full flex flex-col relative bg-inherit">
+      <div className="flex-1 flex flex-col relative bg-inherit overflow-hidden">
         
         <main className={cn(
             "flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 overflow-hidden flex flex-col",
-            activeTab === 'chat' ? "pt-2" : "pt-6"
+            activeTab === 'chat' ? "pt-2 pb-[72px]" : "pt-6 pb-[72px]"
         )}>
           <AnimatePresence mode="wait">
             {activeTab === 'home' && (

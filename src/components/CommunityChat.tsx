@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Send, Mail, User as UserIcon, UserPlus, MessageCircle, X, Bell, Check, Trash2, Edit2, Edit3 } from 'lucide-react';
+import { Send, Mail, User as UserIcon, UserPlus, MessageCircle, X, Bell, Check, Trash2, Edit2, Edit3, RotateCcw } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { db } from '../services/firebase';
 import { collection, onSnapshot, query, orderBy, addDoc, where } from 'firebase/firestore';
@@ -10,7 +10,9 @@ import PrivateChat from './PrivateChat';
 export default function CommunityChat() {
   const { user } = useAppStore();
   const [messages, setMessages] = useState<any[]>([]);
+  const lastMessagesLength = React.useRef(0);
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const [text, setText] = useState('');
   const [joined, setJoined] = useState(() => localStorage.getItem('community_joined') === 'true');
   const [displayName, setDisplayName] = useState(() => localStorage.getItem('community_name') || '');
@@ -132,11 +134,17 @@ export default function CommunityChat() {
 
   // Auto-scroll to bottom
   useEffect(() => {
-    if (view === 'chat' && scrollRef.current) {
-        scrollRef.current.scrollTo({
-            top: scrollRef.current.scrollHeight,
-            behavior: 'smooth'
-        });
+    if (view === 'chat' && messages.length > 0) {
+        const isNewMessage = messages.length > lastMessagesLength.current;
+        const behavior = (isNewMessage && lastMessagesLength.current > 0) ? 'smooth' : 'auto';
+        
+        // Use a slight timeout to ensure DOM has settled
+        const timeoutId = setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior });
+        }, 50);
+        
+        lastMessagesLength.current = messages.length;
+        return () => clearTimeout(timeoutId);
     }
   }, [messages, view]);
 
@@ -157,14 +165,30 @@ export default function CommunityChat() {
         await dataSync.updateCommunityMessage(editingMsgId, text);
         setEditingMsgId(null);
     } else {
-        await addDoc(collection(db, 'community_chat'), {
-          senderId: user?.uid,
-          senderName: displayName,
-          text,
-          timestamp: new Date().toISOString()
-        });
+        const newMessage = {
+            id: 'temp-' + Date.now(),
+            senderId: user.uid,
+            senderName: displayName,
+            text,
+            timestamp: new Date().toISOString(),
+            isOptimistic: true
+        };
+        // Optimistic update
+        setMessages(prev => [...prev, newMessage]);
+        setText('');
+        
+        try {
+            await addDoc(collection(db, 'community_chat'), {
+              senderId: user.uid,
+              senderName: displayName,
+              text,
+              timestamp: new Date().toISOString()
+            });
+        } catch (e) {
+            console.error("Failed to send message:", e);
+            // Revert optimistic if failed (simplified)
+        }
     }
-    setText('');
   };
 
   const handleEditClick = (m: any) => {
@@ -185,7 +209,7 @@ export default function CommunityChat() {
   if (namePrompt) {
       return (
           <div className="p-8 h-full flex flex-col items-center justify-center gap-6 bg-sky-50">
-              <h2 className="text-2xl font-black text-sky-900">Welcome to StudyMaster</h2>
+              <h2 className="text-2xl font-black text-sky-900">Welcome to NEET Prep</h2>
               <div className="w-full bg-white p-2 rounded-2xl shadow-inner border border-sky-200">
                   <input placeholder="Enter your display name" className="p-4 w-full bg-transparent font-bold text-lg text-sky-900 placeholder:text-sky-300 outline-none" onChange={e => setDisplayName(e.target.value)} />
               </div>
@@ -214,7 +238,7 @@ export default function CommunityChat() {
       {/* Header with Tabs, Bell and Edit */}
       <div className="py-2.5 px-4 bg-white border-b flex items-center justify-between">
           <div className="flex flex-col">
-            <h2 className="font-black text-sky-900 text-base leading-tight">StudyMaster</h2>
+            <h2 className="font-black text-sky-900 text-base leading-tight">NEET Prep</h2>
             <div className="flex gap-4 mt-0.5">
                 <button onClick={() => setView('chat')} className={`text-[9px] font-black uppercase tracking-widest ${view === 'chat' ? 'text-sky-500 border-b border-sky-500' : 'text-slate-400'}`}>Community</button>
                 <button onClick={() => setView('friends')} className={`text-[9px] font-black uppercase tracking-widest ${view === 'friends' ? 'text-sky-500 border-b border-sky-500' : 'text-slate-400'}`}>Friends {friends.length > 0 && `(${friends.length})`}</button>
@@ -312,35 +336,39 @@ export default function CommunityChat() {
         )}
       </AnimatePresence>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
         {view === 'chat' ? (
-          messages.map(m => (
-            <div key={m.id} className="flex flex-col gap-1">
-              <div 
-                onClick={() => {
-                  if (m.senderId === user?.uid) {
-                      setSelectedMessageId(selectedMessageId === m.id ? null : m.id);
-                  } else {
-                      setSelectedUser({ id: m.senderId, name: m.senderName });
-                  }
-                }} 
-                className={`p-3 rounded-2xl max-w-[80%] relative cursor-pointer ${m.senderId === user?.uid ? 'bg-sky-500 text-white ml-auto' : 'bg-white shadow-sm border border-sky-100'}`}
-              >
-                  <p className="text-[10px] opacity-70 mb-1 font-bold">{m.senderName}</p>
-                  <div className="break-words">
-                      {m.text}
-                      {m.edited && <span className="text-[9px] opacity-50 ml-2 italic">(edited)</span>}
-                  </div>
+          <>
+            {messages.map(m => (
+              <div key={m.id} className="flex flex-col gap-1">
+                {/* ... existing message render ... */}
+                <div 
+                  onClick={() => {
+                    if (m.senderId === user?.uid) {
+                        setSelectedMessageId(selectedMessageId === m.id ? null : m.id);
+                    } else {
+                        setSelectedUser({ id: m.senderId, name: m.senderName });
+                    }
+                  }} 
+                  className={`p-3 rounded-2xl max-w-[80%] relative cursor-pointer ${m.senderId === user?.uid ? 'bg-sky-500 text-white ml-auto' : 'bg-white shadow-sm border border-sky-100'}`}
+                >
+                    <p className="text-[10px] opacity-70 mb-1 font-bold">{m.senderName}</p>
+                    <div className="break-words">
+                        {m.text}
+                        {m.edited && <span className="text-[9px] opacity-50 ml-2 italic">(edited)</span>}
+                    </div>
+                </div>
+                
+                {m.senderId === user?.uid && selectedMessageId === m.id && (
+                    <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex justify-end gap-2 pr-1">
+                        <button onClick={() => handleEditClick(m)} className="flex items-center gap-1 bg-white text-sky-500 px-3 py-1 rounded-full text-[10px] font-bold shadow-sm border border-sky-100"><Edit3 size={10}/> Edit</button>
+                        <button onClick={() => handleDeleteMessage(m.id)} className="flex items-center gap-1 bg-white text-red-500 px-3 py-1 rounded-full text-[10px] font-bold shadow-sm border border-sky-100"><Trash2 size={10}/> Delete</button>
+                    </motion.div>
+                )}
               </div>
-              
-              {m.senderId === user?.uid && selectedMessageId === m.id && (
-                  <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex justify-end gap-2 pr-1">
-                      <button onClick={() => handleEditClick(m)} className="flex items-center gap-1 bg-white text-sky-500 px-3 py-1 rounded-full text-[10px] font-bold shadow-sm border border-sky-100"><Edit3 size={10}/> Edit</button>
-                      <button onClick={() => handleDeleteMessage(m.id)} className="flex items-center gap-1 bg-white text-red-500 px-3 py-1 rounded-full text-[10px] font-bold shadow-sm border border-sky-100"><Trash2 size={10}/> Delete</button>
-                  </motion.div>
-              )}
-            </div>
-          ))
+            ))}
+            <div ref={messagesEndRef} className="h-2" />
+          </>
         ) : (
           <div className="space-y-2">
             {friends.length === 0 ? (

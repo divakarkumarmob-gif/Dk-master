@@ -39,12 +39,32 @@ export const geminiService = {
     const cacheKey = `qs_${subject}_${chapter}_${count}`;
     
     return handleGeminiCall(async () => {
-      const prompt = `Generate ${count} NEET level multiple choice questions for ${subject} chapter: "${chapter}". 
-      Format: JSON array of objects { text, options: [4 strings], correctAnswer: (0-3), explanation }.
-      Ensure accuracy and clinical relevance for Biology, and conceptual depth for Physics/Chemistry.`;
+      const prompt = `Act as a Senior NEET Subject Matter Expert. 
+      Generate ${count} highly accurate, strictly NEET-level Multiple Choice Questions for the ${subject} chapter: "${chapter}".
+      
+      CRITICAL REQUIREMENTS:
+      1. BASIS: Questions must be 100% based on the NCERT syllabus.
+      2. VARIETY: Include a mix of:
+         - Direct conceptual questions.
+         - Assertion & Reason type questions.
+         - Statement I & Statement II type questions.
+         - Numerical problems (for Physics/Chemistry).
+      3. SUBJECT SPECIFICITY:
+         - BIOLOGY: Focus on NCERT lines, examples, and clinical/ecological relevance.
+         - PHYSICS: Focus on conceptual application and formula-based derivations.
+         - CHEMISTRY: Focus on mechanism-based organic, periodic trends, and stoichiometry.
+      4. DIFFICULTY: Maintain a mix of Easy (20%), Moderate (50%), and Hard/Critical Thinking (30%).
+      
+      FORMAT: Return ONLY a JSON array of objects with this schema:
+      {
+        "text": "The question text",
+        "options": ["Option A", "Option B", "Option C", "Option D"],
+        "correctAnswer": 0-3 index,
+        "explanation": "Detailed explanation mentioning the specific NCERT concept/page logic"
+      }`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.1-pro-preview",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -53,6 +73,32 @@ export const geminiService = {
 
       return JSON.parse(response.text || '[]');
     }, FALLBACK_QUESTIONS, cacheKey);
+  },
+
+  async generateErrorFixQuestions(weakConcepts: string, count: number = 20) {
+    return handleGeminiCall(async () => {
+      const prompt = `Act as an AI NEET Tutor. The student is struggling with these concepts: ${weakConcepts}.
+      Generate ${count} NEW practice questions that directly target the CORE CONFUSION in these areas.
+      Ensure the questions are strictly NEET pattern (NCERT based).
+      
+      FORMAT: JSON array of objects:
+      {
+        "text": "The question text",
+        "options": ["Option A", "Option B", "Option C", "Option D"],
+        "correctAnswer": 0-3 index,
+        "explanation": "Explanation fixing the common misconception in this concept"
+      }`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-pro-preview",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+        }
+      });
+
+      return JSON.parse(response.text || '[]');
+    }, FALLBACK_QUESTIONS);
   },
 
   async solveDoubt(doubt: string, context?: string, imageData?: { data: string, mimeType: string }) {
@@ -96,21 +142,21 @@ export const geminiService = {
         ROLE: NEET Expert.
         RULES: ONLY direct answer. MAX 2 sentences. No 'Hi', 'Hello', 'As a...', or 'Good luck'. Hinglish. Plain text only. No symbols.`;
         
-        const response = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
-          contents: { parts: [...parts, { text: `Context: ${context || 'NEET'}` }] },
-          config: {
-            systemInstruction: "You are a NEET Expert. RULES: Provide a concise directly relevant answer. MAX 5 sentences. NO conversational fillers (Hi/Hello/As a...). Output Hinglish. Plain text only. No special symbols."
-          }
+        const result = await fetch('/api/ask', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question: doubt })
         });
-        return response.text;
+        const data = await result.json();
+        return data.answer || "I'm having trouble connecting right now.";
     }, "I am sorry, but my neural core is currently cooling down. Please practice NCERT chapters meanwhile!");
 
-    // 3. Save to memory (Simplified for now, skipping image memory storage to save space)
-    if (answer && !imageData && doubt) {
+    // 3. Save to memory (Simplified for now)
+    const userId = auth.currentUser?.uid;
+    if (answer && !imageData && doubt && userId) {
         try {
             await addDoc(collection(db, 'interactions'), {
-                userId: auth.currentUser?.uid,
+                userId: userId,
                 question: doubt,
                 answer: answer,
                 keywords: keywords.length > 0 ? keywords : [doubt],
@@ -127,7 +173,7 @@ export const geminiService = {
   async analyzeImage(imageData: string, customPrompt?: string) {
     return handleGeminiCall(async () => {
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-1.5-flash",
         contents: {
           parts: [
             { inlineData: { data: imageData.split(',')[1], mimeType: "image/png" } },
