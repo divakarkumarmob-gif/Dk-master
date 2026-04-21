@@ -11,8 +11,8 @@ const handleGeminiCall = async (fn: () => Promise<any>, fallback?: any, cacheKey
     const cached = localStorage.getItem(`gemini_cache_${cacheKey}`);
     if (cached) {
       const { data, timestamp } = JSON.parse(cached);
-      // Cache valid for 12 hours
-      if (Date.now() - timestamp < 12 * 60 * 60 * 1000) {
+      // Cache valid for 24 hours
+      if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
         return data;
       }
     }
@@ -64,7 +64,7 @@ export const geminiService = {
       }`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
+        model: "gemini-1.5-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -90,7 +90,7 @@ export const geminiService = {
       }`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
+        model: "gemini-1.5-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -112,7 +112,7 @@ export const geminiService = {
         try {
             const q = query(
                 collection(db, 'interactions'), 
-                where('keywords', 'array-contains-any', keywords.length > 0 ? keywords : [doubt]),
+                where('keywords', 'array-contains-any', (keywords.length > 0 ? keywords : [doubt]).slice(0, 30)),
                 where('userId', '==', userId),
                 limit(1)
             );
@@ -188,11 +188,42 @@ export const geminiService = {
     }, "Unable to analyze the image at the moment.");
   },
 
+  async extractQuestionsFromImage(imageData: string) {
+    return handleGeminiCall(async () => {
+      const response = await ai.models.generateContent({
+        model: "gemini-1.5-flash",
+        contents: {
+          parts: [
+            { inlineData: { data: imageData.split(',')[1], mimeType: "image/png" } },
+            { text: `Act as a Professional Question Scanner for NEET Exams. 
+              Extract all Multiple Choice Questions (MCQs) from this image. 
+              Only extract questions that are complete with at least 4 options.
+              For each question, identify the correct answer index (0-3) and provide a short educational explanation.
+              
+              FORMAT: Return ONLY a JSON array of objects with this schema:
+              {
+                "text": "Extracted question text",
+                "options": ["Option A", "Option B", "Option C", "Option D"],
+                "correctAnswer": 0-3,
+                "explanation": "Brief explanation focused on NCERT concepts",
+                "subject": "Physics/Chemistry/Biology (Infer from content)"
+              }` 
+            }
+          ]
+        },
+        config: {
+          responseMimeType: "application/json",
+        }
+      });
+      return JSON.parse(response.text || '[]');
+    }, []);
+  },
+
   async summarizeResponse(text: string) {
     return handleGeminiCall(async () => {
       const prompt = `Summarize: ${text}. Plain text only.`;
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-1.5-flash",
         contents: prompt,
       });
       return response.text;
@@ -203,7 +234,7 @@ export const geminiService = {
     return handleGeminiCall(async () => {
       const prompt = `Study plan based on: ${performanceData}. Plain text.`;
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-1.5-flash",
         contents: prompt,
       });
       return response.text;

@@ -8,7 +8,7 @@ import {
   User,
   MessageCircle,
 } from 'lucide-react';
-import { useAppStore } from './store/useAppStore';
+import { useAppStore, Question } from './store/useAppStore';
 import { cn } from './lib/utils';
 import { auth, db } from './services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -28,7 +28,13 @@ import InstallPwa from './components/InstallPwa';
 
 export default function App() {
   const { user, setUser, setFullState, theme, updateStreak, activeTab, setActiveTab, cleanupOldChatHistory } = useAppStore();
-  const [activeTest, setActiveTest] = useState<{ id: string; type: 'Minor' | 'Major'; subject?: string; chapter?: string } | null>(null);
+  const [activeTest, setActiveTest] = useState<{ 
+    id: string; 
+    type: 'Minor' | 'Major'; 
+    subject?: string; 
+    chapter?: string;
+    questions?: Question[];
+  } | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
 

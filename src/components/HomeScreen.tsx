@@ -16,9 +16,10 @@ import {
   StopCircle,
   Terminal,
   BookOpen,
-  Target
+  Target,
+  ChevronDown
 } from 'lucide-react';
-import { useAppStore, getDailyChapters } from '../store/useAppStore';
+import { useAppStore, getDailyChapters, Question } from '../store/useAppStore';
 import { Leaderboard } from './Leaderboard';
 import { AudioRevision } from './AudioRevision';
 import { NCERTAudioLibrary } from './NCERTAudioLibrary';
@@ -33,14 +34,23 @@ import { ActiveRecallBot } from './ActiveRecallBot';
 import { VideoVault } from './VideoVault';
 import { StudyPulse } from './StudyPulse';
 import { SavedCheatSheets } from './SavedCheatSheets';
+import { QuestionScanner } from './QuestionScanner';
+import { CompatibilityHub } from './CompatibilityHub';
 import { cn } from '../lib/utils';
 import { differenceInDays, format } from 'date-fns';
 import { geminiService } from '../services/gemini';
 import { VoiceAI } from './VoiceAI';
 import { FALLBACK_QUOTES } from '../constants/fallbackData';
+import { CollapsibleTool } from './CollapsibleTool';
 
 interface HomeScreenProps {
-  onStartTest: (config: { id: string; type: 'Minor' | 'Major'; subject?: string; chapter?: string }) => void;
+  onStartTest: (config: { 
+    id: string; 
+    type: 'Minor' | 'Major'; 
+    subject?: string; 
+    chapter?: string;
+    questions?: Question[];
+  }) => void;
 }
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
@@ -48,6 +58,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
   const [quote, setQuote] = useState("The only way to do great work is to love what you do.");
   const [dailyData, setDailyData] = useState(getDailyChapters());
   const [activeHub, setActiveHub] = useState<'main' | 'study'>('main');
+  const [openTool, setOpenTool] = useState<string | null>(null);
   
   const targetDate = new Date('2026-05-03');
   const daysLeft = differenceInDays(targetDate, new Date());
@@ -120,37 +131,31 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 10 }}
-            className="space-y-10"
+            className="space-y-1"
           >
             {/* Operational Base Content - No Outer Box */}
-            <div className="px-4 space-y-8">
+            <div className="px-4 space-y-4">
                 <div className="space-y-1">
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-accent">Operational Greeting</p>
                     <h2 className="text-xl font-black text-text-main dark:text-white uppercase tracking-tight">Hello, {user?.email?.split('@')[0] || 'Aspirant'}!</h2>
                 </div>
 
-                <StudyPulse />
-
-                {/* Streak row */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-white dark:bg-zinc-900 p-4 rounded-3xl text-center shadow-sm border border-line dark:border-white/5">
-                    <span className="block text-xl font-black text-olive-primary">{streak}</span>
-                    <span className="text-[9px] uppercase font-bold text-text-muted tracking-tight">Day Streak</span>
+                {/* Compact Streak row */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-white dark:bg-zinc-900 px-3 py-1.5 rounded-lg flex items-center justify-between shadow-sm border border-line dark:border-white/5">
+                    <span className="text-[10px] font-bold text-text-muted uppercase">Streak</span>
+                    <span className="text-sm font-black text-olive-primary">{streak}</span>
                   </div>
-                  <div className="bg-white dark:bg-zinc-900 p-4 rounded-3xl text-center shadow-sm border border-line dark:border-white/5">
-                    <span className="block text-xl font-black text-olive-primary">
+                  <div className="bg-white dark:bg-zinc-900 px-3 py-1.5 rounded-lg flex items-center justify-between shadow-sm border border-line dark:border-white/5">
+                    <span className="text-[10px] font-bold text-text-muted uppercase">Avg</span>
+                    <span className="text-sm font-black text-olive-primary">
                       {results.length > 0 ? (results.reduce((acc, r) => acc + r.score, 0) / results.length).toFixed(0) : 0}
                     </span>
-                    <span className="text-[9px] uppercase font-bold text-text-muted tracking-tight">Avg Score</span>
                   </div>
                 </div>
 
-                <PlannerBot />
-
-                <ActiveRecallBot />
-
                 {/* Daily Chapters */}
-                <div className="space-y-4">
+                <div className="space-y-2">
                   <h2 className="text-base font-black flex items-center gap-2 text-olive-dark dark:text-white uppercase tracking-widest px-1">
                     <Target size={18} className="text-orange-accent" />
                     Today's Goals
@@ -177,6 +182,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
 
                 {/* Podcast Section */}
                 <AudioRevision showCompact={true} />
+
+                <PlannerBot />
+
+                <StudyPulse />
             </div>
           </motion.div>
         ) : (
@@ -187,7 +196,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
             exit={{ opacity: 0, x: -10 }}
             className="space-y-10 px-4 pb-12"
           >
-            {/* Study Hub Content - No Outer Box */}
+            {/* Study Hub Content */}
             <div className="relative">
                 <div className="mb-8">
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-1">Knowledge Nexus</p>
@@ -195,29 +204,35 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
                 </div>
                 
                 <div className="space-y-8 relative z-10">
-                  <ConceptBot />
-                  <SavedCheatSheets />
-                  <div className="pt-4 border-t border-white/5">
-                    <ConfidenceMap />
-                  </div>
-                  <div className="pt-4 border-t border-white/5">
+                  <CollapsibleTool 
+                    title="Neural & AI Tools"
+                    isOpen={openTool === 'ai'}
+                    onToggle={() => setOpenTool(openTool === 'ai' ? null : 'ai')}
+                  >
+                    <ConceptBot />
                     <VisualDecoder />
-                  </div>
-                  <div className="pt-4 border-t border-white/5">
-                    <ErrorFixTest onStartTest={onStartTest} />
-                  </div>
-                  <div className="pt-4 border-t border-white/5">
+                    <QuestionScanner onStartTest={(qs) => onStartTest({ id: 'scan-' + Date.now(), type: 'Minor', questions: qs })} />
+                  </CollapsibleTool>
+                  
+                  <CollapsibleTool 
+                    title="Battle & Practice"
+                    isOpen={openTool === 'battle'}
+                    onToggle={() => setOpenTool(openTool === 'battle' ? null : 'battle')}
+                  >
                     <BattleArena />
-                  </div>
-                  <div className="pt-4 border-t border-white/5">
-                    <VideoVault />
-                  </div>
-                  <div className="shadow-lg shadow-purple-500/5">
-                    <NCERTAudioLibrary />
-                  </div>
-                  <div className="shadow-lg shadow-emerald-500/5">
                     <RapidFireQuiz />
-                  </div>
+                  </CollapsibleTool>
+
+                  <CollapsibleTool 
+                    title="Resources & Memory"
+                    isOpen={openTool === 'res'}
+                    onToggle={() => setOpenTool(openTool === 'res' ? null : 'res')}
+                  >
+                    <SavedCheatSheets />
+                    <ConfidenceMap />
+                    <VideoVault />
+                    <NCERTAudioLibrary />
+                  </CollapsibleTool>
                 </div>
             </div>
           </motion.div>

@@ -14,7 +14,8 @@ import {
   Sparkles,
   Send,
   Loader2,
-  FileText
+  FileText,
+  Activity
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '../services/firebase';
@@ -23,12 +24,19 @@ import { cn } from '../lib/utils';
 import { geminiService } from '../services/gemini';
 import { AISection } from './AISection';
 import { AIMemorySystem } from './AIMemorySystem';
+import { CompatibilityHub } from './CompatibilityHub';
+import { ActiveRecallBot } from './ActiveRecallBot';
+import { ErrorFixTest } from './ErrorFixTest';
+import { CollapsibleTool } from './CollapsibleTool';
+import { EditProfile } from './EditProfile';
 
 const SettingsScreen: React.FC = () => {
   const { user, logout, theme, setTheme, preloadedAIPhoto, setActiveTab } = useAppStore();
   const [showDoubtSolver, setShowDoubtSolver] = useState(preloadedAIPhoto !== null);
   const [showMemory, setShowMemory] = useState(false);
   const [showAccessDenied, setShowAccessDenied] = useState(false);
+  const [openSection, setOpenSection] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Sync solver visibility with preloaded content
   React.useEffect(() => {
@@ -55,6 +63,10 @@ const SettingsScreen: React.FC = () => {
     );
   }
 
+  if (isEditing) {
+    return <EditProfile onBack={() => setIsEditing(false)} />;
+  }
+
   return (
     <div className="space-y-8 py-6">
       <h2 className="text-xl font-display font-bold px-2">Settings</h2>
@@ -79,12 +91,13 @@ const SettingsScreen: React.FC = () => {
           </div>
         </div>
         <div>
-          <h3 className="text-lg font-bold text-text-main">{user?.email?.split('@')[0] || 'Learning Pro'}</h3>
+          <h3 className="text-xl font-black text-text-main dark:text-white uppercase tracking-tight">{user?.email?.split('@')[0] || 'Learning Pro'}</h3>
           <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest">{user?.email || 'Authenticated User'}</p>
         </div>
+        <button onClick={() => setIsEditing(true)} className="px-6 py-2 bg-orange-accent text-white rounded-full text-xs font-black uppercase tracking-widest shadow-md">Edit Profile</button>
       </div>
 
-      <div className="space-y-4">
+       <div className="space-y-4">
         <h4 className="px-4 text-[10px] font-bold uppercase tracking-widest text-text-muted">AI Intelligence</h4>
         <div className="grid gap-3 px-2">
           <motion.button
@@ -208,6 +221,27 @@ const SettingsScreen: React.FC = () => {
             </button>
           </div>
         </div>
+      </div>
+      
+      <div className="px-2 space-y-3">
+        <CollapsibleTool 
+          title="System Health"
+          isOpen={openSection === 'health'}
+          onToggle={() => setOpenSection(openSection === 'health' ? null : 'health')}
+        >
+          <CompatibilityHub />
+        </CollapsibleTool>
+
+        <CollapsibleTool 
+          title="Error & Recall"
+          isOpen={openSection === 'error'}
+          onToggle={() => setOpenSection(openSection === 'error' ? null : 'error')}
+        >
+          <div className="space-y-4 pt-2">
+            <ActiveRecallBot />
+            <ErrorFixTest onStartTest={(config) => {/* Handle test start if needed */}} />
+          </div>
+        </CollapsibleTool>
       </div>
 
       <div className="space-y-4">

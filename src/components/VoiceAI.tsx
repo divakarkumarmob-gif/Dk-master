@@ -23,13 +23,17 @@ export const VoiceAI: React.FC = () => {
   const responseEndRef = useRef<HTMLDivElement>(null);
   const synthesisRef = useRef<SpeechSynthesisUtterance | null>(null);
   const labelTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [side, setSide] = useState<'left' | 'right'>('right');
   
   const controls = useAnimation();
   const constraintsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Initial position - Bottom right but above the nav bar
-    controls.set({ x: window.innerWidth - 80, y: window.innerHeight - 180 });
+    const x = window.innerWidth - 80;
+    const y = window.innerHeight - 180;
+    controls.set({ x, y });
+    setSide('left'); // Start on the right side initially
     return () => {
       if (labelTimerRef.current) clearTimeout(labelTimerRef.current);
     };
@@ -304,7 +308,10 @@ export const VoiceAI: React.FC = () => {
   const handleDragEnd = (_: any, info: any) => {
     const screenWidth = window.innerWidth;
     const screenHeight = window.innerHeight;
-    const snapX = info.point.x > screenWidth / 2 ? screenWidth - 80 : 20;
+    const isRight = info.point.x > screenWidth / 2;
+    const snapX = isRight ? screenWidth - 80 : 20;
+    
+    setSide(isRight ? 'left' : 'right');
     
     // Ensure it doesn't get stuck in the bottom bar (approx 72px + padding)
     let snapY = info.point.y;
@@ -345,13 +352,21 @@ export const VoiceAI: React.FC = () => {
               <AnimatePresence>
                 {showLabel && (
                   <motion.div
-                    initial={{ opacity: 0, x: -10 }}
+                    initial={{ opacity: 0, x: side === 'right' ? -10 : 10 }}
                     animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -10 }}
-                    className="absolute left-full ml-3 px-3 py-1.5 bg-black/80 backdrop-blur-md rounded-lg border border-white/20 whitespace-nowrap"
+                    exit={{ opacity: 0, x: side === 'right' ? -10 : 10 }}
+                    className={cn(
+                        "absolute px-3 py-1.5 bg-black/80 backdrop-blur-md rounded-lg border border-white/20 whitespace-nowrap",
+                        side === 'right' ? "left-full ml-3" : "right-full mr-3"
+                    )}
                   >
                     <span className="text-[10px] font-black uppercase tracking-widest text-white italic">dk live</span>
-                    <div className="absolute left-0 top-1/2 -translate-x-full -translate-y-1/2 w-0 h-0 border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent border-r-[5px] border-r-black/80"></div>
+                    <div className={cn(
+                        "absolute top-1/2 -translate-y-1/2 w-0 h-0 border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent",
+                        side === 'right' 
+                            ? "left-0 -translate-x-full border-r-[5px] border-r-black/80"
+                            : "right-0 translate-x-full border-l-[5px] border-l-black/80"
+                    )}></div>
                   </motion.div>
                 )}
               </AnimatePresence>

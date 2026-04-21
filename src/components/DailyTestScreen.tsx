@@ -17,7 +17,14 @@ import { geminiService } from '../services/gemini';
 import confetti from 'canvas-confetti';
 
 interface TestProps {
-  testConfig: { id: string; type: 'Minor' | 'Major'; subject?: string; chapter?: string; isErrorFix?: boolean };
+  testConfig: { 
+    id: string; 
+    type: 'Minor' | 'Major'; 
+    subject?: string; 
+    chapter?: string; 
+    isErrorFix?: boolean;
+    questions?: Question[];
+  };
   onBack: () => void;
 }
 
@@ -39,7 +46,10 @@ export default function DailyTestScreen({ testConfig, onBack }: TestProps) {
     const initTest = async () => {
       try {
         let generatedQuestions: Question[] = [];
-        if (testConfig.isErrorFix) {
+        if (testConfig.questions && testConfig.questions.length > 0) {
+          generatedQuestions = testConfig.questions;
+          setTimeLeft(generatedQuestions.length * 2 * 60); // 2 mins per question
+        } else if (testConfig.isErrorFix) {
           const { mistakeVault } = useAppStore.getState();
           const weakConcepts = mistakeVault.slice(-15).map(q => `${q.subject}: ${q.chapter}`).join(', ');
           generatedQuestions = await geminiService.generateErrorFixQuestions(weakConcepts, 20);

@@ -101,7 +101,12 @@ service cloud.firestore {
     match /duels/{duelId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && (request.auth.uid in existing().players.keys() || existing().status == 'waiting');
+      allow update: if isSignedIn() && (
+        // Allow user to join: if it's waiting, user isn't in players yet, and they are adding themselves
+        (existing().status == 'waiting' && !(request.auth.uid in existing().players) && incoming().status == 'active') ||
+        // Allow user to update their own progress
+        (request.auth.uid in existing().players)
+      );
     }
 
     match /reports/{reportId} {

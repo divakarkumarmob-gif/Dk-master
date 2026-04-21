@@ -70,6 +70,7 @@ interface AppState {
   
   // Actions
   setUser: (user: AuthUser | null) => void;
+  updateProfileDisplayName: (newName: string) => void;
   setFullState: (data: Partial<AppState>) => void;
   setActiveTab: (tab: 'home' | 'analysis' | 'notes' | 'settings' | 'chat' | 'admin') => void;
   setPreloadedAIPhoto: (note: Note | null) => void;
@@ -112,6 +113,7 @@ export const useAppStore = create<AppState>()(
       preloadedAIPhoto: null,
 
       setUser: (user) => set({ user }),
+      updateProfileDisplayName: (newName) => set((state) => ({ user: state.user ? { ...state.user, email: `${newName}@${state.user.email?.split('@')[1]}` } : null })),
       setFullState: (data) => set((state) => ({ ...state, ...data })),
       logout: () => set({ user: null, results: [], notes: [], starredQuestions: [], mistakeVault: [], chatHistory: [], streak: 0 }),
       setTheme: (theme) => set({ theme }),
