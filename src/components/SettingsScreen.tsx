@@ -305,7 +305,8 @@ const SettingsScreen: React.FC = () => {
           <MenuButton 
             icon={<HelpCircle size={18} />} 
             label="Technical Support" 
-            onClick={() => {}}
+            subtitle="Share error with app or web"
+            onClick={() => window.open('https://t.me/+qDCp4Ra94XFiZDZl', '_blank')}
           />
         </div>
       </div>
@@ -325,7 +326,7 @@ const SettingsScreen: React.FC = () => {
 
 export default SettingsScreen;
 
-function MenuButton({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick: () => void }) {
+function MenuButton({ icon, label, subtitle, onClick }: { icon: React.ReactNode, label: string, subtitle?: string, onClick: () => void }) {
   return (
     <motion.button
       whileTap={{ scale: 0.98 }}
@@ -333,12 +334,15 @@ function MenuButton({ icon, label, onClick }: { icon: React.ReactNode, label: st
       className="w-full glass-card p-4 rounded-3xl flex items-center justify-between group transition-all hover:bg-white"
     >
       <div className="flex items-center gap-4">
-        <div className="w-10 h-10 rounded-2xl bg-olive-100 flex items-center justify-center text-olive-600 group-hover:bg-orange-brand/10 transition-colors">
+        <div className="w-10 h-10 rounded-2xl bg-olive-100 flex items-center justify-center text-olive-600 group-hover:bg-orange-brand/10 shrink-0 transition-colors">
           {icon}
         </div>
-        <span className="font-bold text-sm">{label}</span>
+        <div className="flex flex-col items-start text-left">
+          <span className="font-bold text-sm">{label}</span>
+          {subtitle && <span className="text-[10px] font-bold text-text-muted mt-0.5">{subtitle}</span>}
+        </div>
       </div>
-      <ChevronRight size={18} className="text-olive-300 group-hover:text-orange-brand transition-colors" />
+      <ChevronRight size={18} className="text-olive-300 group-hover:text-orange-brand shrink-0 transition-colors" />
     </motion.button>
   );
 }

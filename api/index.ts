@@ -1,24 +1,107 @@
 import express from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { GoogleGenAI } from '@google/genai';
 import nodemailer from 'nodemailer';
 import fs from 'fs-extra';
-import path from 'path';
+import admin from 'firebase-admin';
+import cors from 'cors';
 
+// Initialize Firebase Admin
+if (!admin.apps.length) {
+  try {
+    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON 
+      ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)
+      : undefined;
+
+    admin.initializeApp({
+      credential: serviceAccount ? admin.credential.cert(serviceAccount) : admin.credential.applicationDefault(),
+      databaseURL: `https://${process.env.VITE_FIREBASE_PROJECT_ID}.firebaseio.com`
+    });
+  } catch (error) {
+    console.error('[FIREBASE] Admin failed:', error);
+  }
+}
+
+const db = admin.firestore();
 const app = express();
+
+// 3. CORS Protection
+const allowedOrigins = ['https://dk-master.vercel.app'];
+if (process.env.NODE_ENV !== 'production') {
+  allowedOrigins.push('http://localhost:3000', 'http://localhost:5173');
+}
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin) || (process.env.NODE_ENV !== 'production' && origin.endsWith('.run.app'))) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
+
 app.use(express.json());
+
+// 1. Firebase Auth Token Verification Middleware
+interface AuthRequest extends Request {
+  user?: admin.auth.DecodedIdToken;
+}
+
+const authMiddleware = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
+  }
+
+  const idToken = authHeader.split('Bearer ')[1];
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    req.user = decodedToken;
+    next();
+  } catch (error) {
+    res.status(401).json({ error: 'Unauthorized' });
+  }
+};
+
+// 2. Rate Limiting Middleware (50 AI requests per day)
+const aiRateLimiter = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  
+  const uid = req.user.uid;
+  const today = new Date().toISOString().split('T')[0];
+  const limitRef = db.collection('user_limits').doc(`${uid}_${today}`);
+
+  try {
+    const doc = await limitRef.get();
+    const currentCount = doc.exists ? (doc.data()?.count || 0) : 0;
+
+    if (currentCount >= 50) {
+      return res.status(429).json({ 
+        error: 'Too Many Requests', 
+        message: 'Daily limit of 50 AI requests reached.' 
+      });
+    }
+
+    await limitRef.set({ count: currentCount + 1, date: today }, { merge: true });
+    next();
+  } catch (error) {
+    next();
+  }
+};
 
 const otps = new Map<string, { code: string; expiry: number }>();
 const MEMORY_FILE = '/tmp/memory.json';
 const MAX_ENTRIES = 1000;
 
-// Initialize memory in /tmp (Vercel serverless has /tmp as writable)
 if (!fs.existsSync(MEMORY_FILE)) {
   fs.writeJsonSync(MEMORY_FILE, { entries: [] });
 }
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-app.post('/api/auth/send-otp', async (req, res) => {
+app.post('/api/auth/send-otp', authMiddleware, async (req: AuthRequest, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email required' });
 
@@ -26,51 +109,28 @@ app.post('/api/auth/send-otp', async (req, res) => {
   otps.set(email, { code, expiry: Date.now() + 10 * 60 * 1000 });
 
   if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
-    return res.json({ 
-      success: true, 
-      message: 'OTP generated (Developer Mode).', 
-      dev: true,
-      code: code 
-    });
+    return res.json({ success: true, message: 'OTP generated (Dev).', dev: true, code: code });
   }
 
   const transporter = nodemailer.createTransport({
     service: 'gmail',
-    auth: {
-      user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_PASS,
-    },
+    auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_PASS },
   });
 
   try {
     await transporter.sendMail({
       from: `"NEET Prep" <${process.env.GMAIL_USER}>`,
       to: email,
-      subject: 'Verification Code for NEET Prep',
-      text: `Your verification code is: ${code}. It expires in 10 minutes.`,
-      html: `
-        <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px; max-width: 400px; margin: auto; text-align: center;">
-          <h2 style="color: #2563eb;">Verify Your Gmail</h2>
-          <p>Welcome to NEET Prep! Use the code below to verify your account:</p>
-          <div style="font-size: 32px; font-weight: bold; letter-spacing: 5px; padding: 15px; background: #f8f9fa; border-radius: 8px; margin: 20px 0;">
-            ${code}
-          </div>
-          <p style="color: #666; font-size: 12px;">This code will expire in 10 minutes. If you didn't request this, please ignore this email.</p>
-        </div>
-      `
+      subject: 'Verification Code',
+      text: `Your code is: ${code}`
     });
-    res.json({ success: true, message: 'OTP has been sent to your Gmail.' });
-  } catch (error: any) {
-    if (error.responseCode === 535) {
-      return res.status(401).json({ 
-        error: 'Invalid Gmail Login. Please use an "App Password" instead of your regular password in Settings -> Secrets.' 
-      });
-    }
-    res.status(500).json({ error: 'Mail server error.' });
+    res.json({ success: true, message: 'OTP sent.' });
+  } catch (error) {
+    res.status(500).json({ error: 'Mail error.' });
   }
 });
 
-app.post('/api/auth/verify-otp', async (req, res) => {
+app.post('/api/auth/verify-otp', authMiddleware, async (req: AuthRequest, res) => {
   const { email, code } = req.body;
   const stored = otps.get(email);
   if (stored && stored.code === code && stored.expiry > Date.now()) {
@@ -79,7 +139,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
   res.status(400).json({ error: 'Invalid or expired OTP.' });
 });
 
-app.post('/api/ask', async (req, res) => {
+app.post('/api/ask', authMiddleware, aiRateLimiter, async (req: AuthRequest, res) => {
   const { question } = req.body;
   let memory = { entries: [] };
   try { memory = await fs.readJson(MEMORY_FILE); } catch(e) {}

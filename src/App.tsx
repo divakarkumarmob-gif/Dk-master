@@ -134,7 +134,8 @@ export default function App() {
 
   return (
     <div className={cn(
-        "min-h-screen flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]", 
+        (activeTab === 'chat' || activeTab === 'admin') ? "h-[100dvh] overflow-hidden" : "min-h-screen",
+        "flex flex-col", 
         theme === 'dark' ? 'dark' : ''
     )}>
       <AnimatePresence>
@@ -143,11 +144,15 @@ export default function App() {
       
       <InstallPwa />
 
-      <div className="flex-1 flex flex-col relative bg-inherit overflow-hidden">
+      <div className={cn(
+          "flex-1 flex flex-col relative bg-inherit",
+          (activeTab === 'chat' || activeTab === 'admin') ? "overflow-hidden" : ""
+      )}>
         
         <main className={cn(
-            "flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 overflow-hidden flex flex-col",
-            activeTab === 'chat' ? "pt-2 pb-[72px]" : "pt-6 pb-[72px]"
+            "flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 flex flex-col",
+            (activeTab === 'chat' || activeTab === 'admin') ? "overflow-hidden" : "",
+            "pt-2 pb-[72px]"
         )}>
           <AnimatePresence mode="wait">
             {activeTab === 'home' && (

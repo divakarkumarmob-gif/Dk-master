@@ -313,10 +313,10 @@ export const VoiceAI: React.FC = () => {
     
     setSide(isRight ? 'left' : 'right');
     
-    // Ensure it doesn't get stuck in the bottom bar (approx 72px + padding)
+    // Bottom bar is ~64px. Button is 56px (+ spacing). Limit to screenHeight - 135
     let snapY = info.point.y;
-    if (snapY > screenHeight - 160) {
-      snapY = screenHeight - 180;
+    if (snapY > screenHeight - 135) {
+      snapY = screenHeight - 135;
     } else if (snapY < 40) {
       snapY = 60;
     }
@@ -339,7 +339,7 @@ export const VoiceAI: React.FC = () => {
                 top: 40,
                 left: 0,
                 right: window.innerWidth - 60,
-                bottom: window.innerHeight - 160
+                bottom: window.innerHeight - 135
               }}
               dragElastic={0.05}
               dragMomentum={false}
@@ -347,7 +347,7 @@ export const VoiceAI: React.FC = () => {
               onDragEnd={handleDragEnd}
               whileDrag={{ scale: 1.1, cursor: 'grabbing' }}
               className="absolute pointer-events-auto touch-none flex items-center"
-              style={{ x: 20, y: window.innerHeight - 150, zIndex: 100 }}
+              style={{ x: 20, y: window.innerHeight - 135, zIndex: 100 }}
             >
               <AnimatePresence>
                 {showLabel && (

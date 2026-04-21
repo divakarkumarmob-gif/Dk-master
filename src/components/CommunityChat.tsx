@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Send, Mail, User as UserIcon, UserPlus, MessageCircle, X, Bell, Check, Trash2, Edit2, Edit3, RotateCcw } from 'lucide-react';
+import { Send, Mail, User as UserIcon, UserPlus, MessageCircle, X, Bell, Check, Trash2, Edit2, Edit3, Camera, ImagePlus, PlusCircle, Smile } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { db } from '../services/firebase';
 import { collection, onSnapshot, query, orderBy, addDoc, where } from 'firebase/firestore';
 import { dataSync } from '../services/dataSync';
 import PrivateChat from './PrivateChat';
+import { compressImage } from '../lib/imageUtils';
 
 export default function CommunityChat() {
   const { user } = useAppStore();
@@ -30,6 +31,18 @@ export default function CommunityChat() {
   const [friends, setFriends] = useState<any[]>([]);
   const [view, setView] = useState<'chat' | 'friends'>('chat');
   const [toast, setToast] = useState<string | null>(null);
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const cameraInputRef = React.useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
+  const [isEmojiMenuOpen, setIsEmojiMenuOpen] = useState(false);
+  const QUICK_EMOJIS = ['😀', '😂', '❤️', '🙏', '👍', '🔥', '😢', '🥺', '😮', '🤔'];
+
+  useEffect(() => {
+    setIsAttachmentMenuOpen(false);
+    setIsEmojiMenuOpen(false);
+  }, [view]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -152,8 +165,8 @@ export default function CommunityChat() {
     return <PrivateChat chatId={activeChatId} otherUser={selectedUser} onBack={() => { setActiveChatId(null); setSelectedUser(null); }} />;
   }
 
-  const sendMessage = async () => {
-    if (!text.trim() || !user?.uid) return;
+  const sendMessage = async (imageUrl?: string) => {
+    if ((!text.trim() && !imageUrl) || !user?.uid) return;
 
     const myModeration = await dataSync.getUserModeration(user.uid);
     if (myModeration?.isBlocked) {
@@ -170,28 +183,53 @@ export default function CommunityChat() {
             senderId: user.uid,
             senderName: displayName,
             text,
+            imageUrl,
             timestamp: new Date().toISOString(),
             isOptimistic: true
         };
         // Optimistic update
         setMessages(prev => [...prev, newMessage]);
+        const currentText = text;
         setText('');
         
         try {
             await addDoc(collection(db, 'community_chat'), {
               senderId: user.uid,
               senderName: displayName,
-              text,
+              text: currentText,
+              imageUrl: imageUrl || null,
               timestamp: new Date().toISOString()
             });
         } catch (e) {
             console.error("Failed to send message:", e);
-            // Revert optimistic if failed (simplified)
         }
     }
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setIsUploading(true);
+    try {
+      const compressedDataUrl = await compressImage(file, 200); // 200KB max
+      await sendMessage(compressedDataUrl);
+    } catch (err) {
+      console.error("Upload failed", err);
+      alert("Failed to upload image. Please try a smaller file.");
+    } finally {
+      setIsUploading(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
   const handleEditClick = (m: any) => {
+      const diffMs = new Date().getTime() - new Date(m.timestamp).getTime();
+      if (diffMs > 5 * 60 * 1000) {
+          alert("Time's up! Messages can only be edited within 5 minutes of sending.");
+          setSelectedMessageId(null);
+          return;
+      }
       setEditingMsgId(m.id);
       setText(m.text);
       setSelectedMessageId(null);
@@ -353,6 +391,11 @@ export default function CommunityChat() {
                   className={`p-3 rounded-2xl max-w-[80%] relative cursor-pointer ${m.senderId === user?.uid ? 'bg-sky-500 text-white ml-auto' : 'bg-white shadow-sm border border-sky-100'}`}
                 >
                     <p className="text-[10px] opacity-70 mb-1 font-bold">{m.senderName}</p>
+                    {m.imageUrl && (
+                        <div className="mb-2 rounded-xl overflow-hidden bg-sky-900/10">
+                            <img src={m.imageUrl} alt="attachment" className="w-full h-auto object-cover max-h-60" referrerPolicy="no-referrer" />
+                        </div>
+                    )}
                     <div className="break-words">
                         {m.text}
                         {m.edited && <span className="text-[9px] opacity-50 ml-2 italic">(edited)</span>}
@@ -361,7 +404,9 @@ export default function CommunityChat() {
                 
                 {m.senderId === user?.uid && selectedMessageId === m.id && (
                     <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex justify-end gap-2 pr-1">
-                        <button onClick={() => handleEditClick(m)} className="flex items-center gap-1 bg-white text-sky-500 px-3 py-1 rounded-full text-[10px] font-bold shadow-sm border border-sky-100"><Edit3 size={10}/> Edit</button>
+                        {(new Date().getTime() - new Date(m.timestamp).getTime()) <= 5 * 60 * 1000 && (
+                            <button onClick={() => handleEditClick(m)} className="flex items-center gap-1 bg-white text-sky-500 px-3 py-1 rounded-full text-[10px] font-bold shadow-sm border border-sky-100"><Edit3 size={10}/> Edit</button>
+                        )}
                         <button onClick={() => handleDeleteMessage(m.id)} className="flex items-center gap-1 bg-white text-red-500 px-3 py-1 rounded-full text-[10px] font-bold shadow-sm border border-sky-100"><Trash2 size={10}/> Delete</button>
                     </motion.div>
                 )}
@@ -392,24 +437,68 @@ export default function CommunityChat() {
         <div className="py-2.5 px-4 border-t bg-white space-y-1.5">
             {editingMsgId && (
                 <div className="flex items-center justify-between px-2 py-1 bg-sky-50 rounded-lg">
-                    <span className="text-[10px] font-bold text-sky-600 uppercase tracking-wider">Editing Message</span>
-                    <button onClick={() => { setEditingMsgId(null); setText(''); }} className="text-red-500"><X size={14}/></button>
+                    <span className="text-[10px] font-bold text-sky-600 uppercase tracking-wider block ml-2">Editing Message</span>
+                    <button onClick={() => { setEditingMsgId(null); setText(''); }} className="text-red-500 p-1"><X size={14}/></button>
                 </div>
             )}
-            <div className="flex gap-2">
-                <input 
-                  value={text} 
-                  onChange={e => setText(e.target.value)} 
-                  onKeyDown={e => e.key === 'Enter' && sendMessage()}
-                  className="flex-1 py-2 px-3.5 bg-sky-950 text-white rounded-xl placeholder:text-sky-300 outline-none text-sm" 
-                  placeholder={editingMsgId ? "Edit your message..." : "Message..."} 
-                />
-                <button 
-                  onClick={sendMessage} 
-                  className={`p-2 rounded-xl text-white transition-colors ${editingMsgId ? 'bg-green-500' : 'bg-sky-500'}`}
-                >
-                    {editingMsgId ? <Check size={18} /> : <Send size={18} />}
-                </button>
+            
+            <div className="relative">
+                {/* Popups */}
+                <AnimatePresence>
+                    {isAttachmentMenuOpen && (
+                        <motion.div initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} exit={{opacity:0, y:10}} className="absolute bottom-full left-0 mb-2 bg-white border border-sky-100 p-2 rounded-2xl flex gap-2 shadow-xl z-50">
+                            <button onClick={() => { cameraInputRef.current?.click(); setIsAttachmentMenuOpen(false); }} disabled={isUploading} className="p-3 bg-sky-50 rounded-xl text-sky-500 hover:bg-sky-100 transition-colors flex flex-col items-center gap-1 min-w-[60px]">
+                                <Camera size={24} />
+                                <span className="text-[9px] font-bold">Camera</span>
+                            </button>
+                            <button onClick={() => { fileInputRef.current?.click(); setIsAttachmentMenuOpen(false); }} disabled={isUploading} className="p-3 bg-indigo-50 rounded-xl text-indigo-500 hover:bg-indigo-100 transition-colors flex flex-col items-center gap-1 min-w-[60px]">
+                                <ImagePlus size={24} />
+                                <span className="text-[9px] font-bold">Gallery</span>
+                            </button>
+                        </motion.div>
+                    )}
+                    {isEmojiMenuOpen && (
+                        <motion.div initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} exit={{opacity:0, y:10}} className="absolute bottom-full right-14 mb-2 bg-white border border-sky-100 p-3 rounded-2xl flex flex-wrap max-w-[200px] gap-2 shadow-xl z-50">
+                            {QUICK_EMOJIS.map(em => (
+                                <button key={em} onClick={() => { setText(text + em); setIsEmojiMenuOpen(false); }} className="text-xl hover:scale-110 transition-transform">{em}</button>
+                            ))}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                <div className="flex gap-2 items-center">
+                    <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
+                    <input type="file" accept="image/*" capture="environment" className="hidden" ref={cameraInputRef} onChange={handleFileUpload} />
+                    
+                    <div className="flex-1 bg-sky-950 rounded-[28px] flex items-center px-1.5 shadow-inner border-2 border-transparent focus-within:border-sky-800 transition-colors">
+                        {!editingMsgId && (
+                            <button onClick={() => { setIsAttachmentMenuOpen(!isAttachmentMenuOpen); setIsEmojiMenuOpen(false); }} className="p-2 text-sky-400 hover:text-sky-300 transition-transform">
+                                <PlusCircle size={22} className={isAttachmentMenuOpen ? "rotate-45" : ""} />
+                            </button>
+                        )}
+
+                        <input 
+                            value={text} 
+                            onChange={e => setText(e.target.value)} 
+                            onKeyDown={e => e.key === 'Enter' && sendMessage()}
+                            disabled={isUploading}
+                            className={`flex-1 py-3 px-2 bg-transparent text-white font-bold outline-none text-sm disabled:opacity-70 placeholder:font-normal placeholder:text-sky-300/60 ${editingMsgId ? "ml-2" : ""}`} 
+                            placeholder={editingMsgId ? "Edit message..." : isUploading ? "Uploading image..." : "Start chat..."} 
+                        />
+                        
+                        <button onClick={() => { setIsEmojiMenuOpen(!isEmojiMenuOpen); setIsAttachmentMenuOpen(false); }} className="p-2 text-sky-400 hover:text-sky-300">
+                            <Smile size={22} className={isEmojiMenuOpen ? "text-[#ff6b00]" : ""} />
+                        </button>
+                    </div>
+
+                    <button 
+                        onClick={() => sendMessage()} 
+                        disabled={isUploading || (!text.trim() && !isUploading)}
+                        className={`w-12 h-12 flex items-center justify-center rounded-full flex-shrink-0 shadow-lg transition-all active:scale-95 ${text.trim() || isUploading ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-300'}`}
+                    >
+                        {editingMsgId ? <Check size={20} className="!animate-none" style={{ animation: 'none' }} /> : <Send size={20} className="mr-0.5 !animate-none" style={{ animation: 'none' }} />}
+                    </button>
+                </div>
             </div>
         </div>
       )}
@@ -422,7 +511,16 @@ export default function CommunityChat() {
                     <h3 className="font-black text-xl mb-6">{selectedUser.name}</h3>
                     <div className="grid grid-cols-2 gap-2">
                         <button onClick={sendFriendRequest} className="flex flex-col items-center gap-1 p-3 bg-orange-100 text-orange-600 rounded-xl font-bold text-xs"><UserPlus size={20}/> Add Friend</button>
-                        <button onClick={() => startPrivateChat(selectedUser.id, selectedUser.name)} className="flex flex-col items-center gap-1 p-3 bg-sky-500 text-white rounded-xl font-bold text-xs"><MessageCircle size={20}/> Chat</button>
+                        <button onClick={() => {
+                            const isFriend = friends.some(f => f.id === selectedUser.id);
+                            if (isFriend) {
+                                startPrivateChat(selectedUser.id, selectedUser.name);
+                            } else {
+                                setToast("Not in your friends list");
+                                setSelectedUser(null);
+                                setTimeout(() => setToast(null), 2000);
+                            }
+                        }} className="flex flex-col items-center gap-1 p-3 bg-sky-500 text-white rounded-xl font-bold text-xs"><MessageCircle size={20}/> Chat</button>
                     </div>
 
                     {user?.email === 'divakarkumarmob@gmail.com' && (

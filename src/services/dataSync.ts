@@ -1,5 +1,5 @@
 import { db } from './firebase';
-import { doc, getDoc, setDoc, deleteDoc, collection, getDocs, addDoc, query, orderBy, where, onSnapshot, limit, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, collection, getDocs, addDoc, query, orderBy, where, onSnapshot, limit, updateDoc, serverTimestamp, arrayUnion } from 'firebase/firestore';
 import { TestResult, Note, Question, ChatMessage, AuthUser } from '../store/useAppStore';
 
 export const dataSync = {
@@ -114,6 +114,46 @@ export const dataSync = {
   async blockUser(chatId: string, userId: string) {
       const chatRef = doc(db, 'private_chats', chatId);
       await setDoc(chatRef, { blockedBy: userId }, { merge: true });
+  },
+
+  async editPrivateMessage(chatId: string, msgId: string, newText: string) {
+      try {
+          const msgRef = doc(db, 'private_chats', chatId, 'messages', msgId);
+          await setDoc(msgRef, { text: newText, edited: true }, { merge: true });
+          return true;
+      } catch (e) {
+          console.error("Failed to edit private message:", e);
+          return false;
+      }
+  },
+
+  async deletePrivateMessageForEveryone(chatId: string, msgId: string) {
+      try {
+          const msgRef = doc(db, 'private_chats', chatId, 'messages', msgId);
+          await deleteDoc(msgRef);
+          return true;
+      } catch (e) {
+          console.error("Failed to delete private message for everyone:", e);
+          return false;
+      }
+  },
+
+  async deletePrivateMessageForMe(chatId: string, msgId: string, userId: string) {
+      try {
+          const msgRef = doc(db, 'private_chats', chatId, 'messages', msgId);
+          await updateDoc(msgRef, { deletedFor: arrayUnion(userId) });
+          return true;
+      } catch (e) {
+          // If the field doesn't exist yet, we can use setDoc with merge
+          try {
+            const msgRef = doc(db, 'private_chats', chatId, 'messages', msgId);
+            await setDoc(msgRef, { deletedFor: [userId] }, { merge: true });
+            return true;
+          } catch(e2) {
+             console.error("Failed to delete private message for me:", e2);
+             return false;
+          }
+      }
   },
 
   async updateUserModeration(targetUserId: string, moderation: { isBlocked: boolean, cooldownMs: number, maxDailyMessages: number, alerts?: number }) {

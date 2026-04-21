@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
-import { initializeFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { initializeFirestore, doc, getDocFromServer, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: process.env.VITE_FIREBASE_API_KEY,
@@ -15,10 +16,13 @@ const databaseId = process.env.VITE_FIREBASE_DATABASE_ID;
 
 const app = initializeApp(firebaseConfig);
 
-// Use initializeFirestore to enable force-long-polling for stable connection in proxy environments
+// Use persistentLocalCache for offline capabilities across multiple tabs
 export const db = initializeFirestore(app, {
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
     experimentalForceLongPolling: true,
 }, databaseId);
+
+export const storage = getStorage(app);
 
 export const auth = getAuth(app);
 
