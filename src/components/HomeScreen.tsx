@@ -64,8 +64,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
   const [activeHub, setActiveHub] = useState<'main' | 'study'>('main');
   const [openTool, setOpenTool] = useState<string | null>(null);
   const [isNavVisible, setIsNavVisible] = useState(true);
-  const [showCustomPractice, setShowCustomPractice] = useState(false);
+  const [showProgress, setShowProgress] = useState(false);
+  const [comingSoon, setComingSoon] = useState(false);
   const [activeVideo, setActiveVideo] = useState<{ id: string, title: string } | null>(null);
+
+  const triggerComingSoon = () => {
+    setComingSoon(true);
+    setTimeout(() => setComingSoon(false), 1500);
+  };
   const { scrollY } = useScroll();
 
   useMotionValueEvent(scrollY, "change", (current) => {
@@ -285,7 +291,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
                   Elite Ranking
               </h2>
               <button 
-                onClick={() => setShowCustomPractice(true)}
+                onClick={triggerComingSoon}
                 className="text-xs px-3 py-1.5 bg-olive-primary/10 dark:bg-emerald-500/20 text-olive-primary dark:text-emerald-400 font-bold rounded-lg uppercase tracking-wider hover:bg-olive-primary/20 transition-colors"
                 title="Custom Practice"
               >
@@ -311,9 +317,29 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
       </div>
 
       <VoiceAI />
+      
+      <AnimatePresence>
+        {comingSoon && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 20 }}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[200] bg-zinc-900 border border-emerald-500/30 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 backdrop-blur-md"
+          >
+            <div className="w-8 h-8 bg-emerald-500/20 rounded-full flex items-center justify-center">
+              <Clock size={16} className="text-emerald-500" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Feature Locked</span>
+              <span className="text-xs font-bold text-zinc-300">Custom Practice: Coming Soon</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <CustomPracticeModal 
-        isOpen={showCustomPractice} 
-        onClose={() => setShowCustomPractice(false)} 
+        isOpen={false} 
+        onClose={() => {}} 
         onStartTest={onStartTest} 
       />
       <VideoModal 

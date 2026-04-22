@@ -20,14 +20,25 @@ export const LectureLibrary = () => {
 
     const handlePlayVideo = async (chapter: string) => {
         setLoadingId(chapter);
-        const videoId = await geminiService.getYoutubeVideoId(`${chapter} full lecture NEET ${activeSubject}`);
-        if (videoId) {
-            setActiveVideo({ id: videoId, title: chapter });
-        } else {
-            // Fallback to searching if AI fails
+        
+        // Custom 4-second timeout logic
+        const videoIdPromise = geminiService.getYoutubeVideoId(`${chapter} full lecture NEET ${activeSubject}`);
+        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000));
+
+        try {
+            const videoId = await Promise.race([videoIdPromise, timeoutPromise]);
+            
+            if (videoId) {
+                setActiveVideo({ id: videoId, title: chapter });
+            } else {
+                // Fallback to searching if AI fails or times out (after 4 sec)
+                window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(chapter + " class 11 12 " + activeSubject + " full lecture")}`, '_blank');
+            }
+        } catch (e) {
             window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(chapter + " class 11 12 " + activeSubject + " full lecture")}`, '_blank');
+        } finally {
+            setLoadingId(null);
         }
-        setLoadingId(null);
     };
 
     return (
