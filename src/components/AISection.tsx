@@ -74,6 +74,8 @@ export const AISection: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   };
 
   const handleSend = async (text?: string) => {
+    if (loading) return; // Prevent multiple clicks
+    
     const userMsg = text || query || '';
     const capturedImage = selectedImage;
     

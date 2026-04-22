@@ -18,28 +18,41 @@ export const PlannerBot: React.FC = () => {
   const [tasks, setTasks] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchPlanner = async () => {
-      setLoading(true);
-      try {
-        const perfSummary = results.slice(-5).map(r => `${r.subject} (${r.score}/${r.totalQuestions * 4})`).join(', ');
-        const prompt = `Act as a top NEET mentor. Based on my last 5 tests: ${perfSummary || 'No data yet'}. 
-        Give me exactly 3 bullet points for today's focus. 
-        Keep it sharp (e.g. "Fix Chemical Bonding hybridisation errors", "Biology: NCERT Page 45-50 diagram recall"). 
-        Hinglish ok. No numbered list, just 3 lines.`;
-        
-        const response = await geminiService.solveDoubt(prompt);
-        if (response) {
-            setTasks(response.split('\n').filter(t => t.trim().length > 5).slice(0, 3));
-        }
-      } catch (e) {
-        console.error(e);
-        setTasks(["Review NCERT Bio Diagrams", "Practice 10 High-Yield Phys Numericals", "Solve Mistake Vault Questions"]);
+  const fetchPlanner = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const cacheKey = `planner_${today}_${results.length}`; // Key depends on today's date and performance count
+      
+      const perfSummary = results.slice(-5).map(r => `${r.subject} (${r.score}/${r.totalQuestions * 4})`).join(', ');
+      const prompt = `Act as a top NEET mentor. Based on my last 5 tests: ${perfSummary || 'No data yet'}. Give me exactly 3 short bullet points for today's focus. 3 lines only.`;
+      
+      const response = await geminiService.solveDoubt(prompt, undefined, undefined, cacheKey);
+      if (response) {
+          setTasks(response.split('\n').filter(t => t.trim().length > 5).slice(0, 3));
       }
-      setLoading(false);
-    };
-    fetchPlanner();
-  }, [results]);
+    } catch (e) {
+      console.error(e);
+      setTasks(["Review NCERT Bio Diagrams", "Practice 10 High-Yield Phys Numericals", "Solve Mistake Vault Questions"]);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    // Check local cache on mount, but do NOT call API automatically
+    const today = new Date().toISOString().split('T')[0];
+    const cacheKey = `planner_${today}_${results.length}`;
+    const stored = localStorage.getItem(`gemini_cache_${cacheKey}`);
+    if (stored) {
+        try {
+            const { data } = JSON.parse(stored);
+            setTasks(data.split('\n').filter((t: string) => t.trim().length > 5).slice(0, 3));
+        } catch(e) {}
+    } else if (results.length === 0) {
+        setTasks(["Select a chapter to start", "Deep dive into Biology NCERT", "Review Physics formulas"]);
+    }
+  }, [results.length]);
 
   return (
     <div className="space-y-4">
@@ -48,7 +61,13 @@ export const PlannerBot: React.FC = () => {
             <LayoutList size={18} className="text-orange-accent" />
             <h3 className="text-xs font-black uppercase tracking-widest text-olive-dark dark:text-white">AI Strategy List</h3>
         </div>
-        <span className="text-[9px] font-black bg-orange-accent/10 text-orange-accent px-2 py-0.5 rounded-full uppercase">Dynamic</span>
+        <button 
+          onClick={fetchPlanner}
+          disabled={loading}
+          className="text-[9px] font-black bg-orange-accent/10 text-orange-accent px-3 py-1 rounded-full uppercase hover:bg-orange-accent/20 transition-all flex items-center gap-1.5"
+        >
+          {loading ? 'Thinking...' : 'Sync Plan'}
+        </button>
       </div>
 
       <div className="bg-white/50 dark:bg-zinc-900/60 border border-line dark:border-white/5 rounded-[32px] p-5 space-y-4 shadow-sm backdrop-blur-sm">

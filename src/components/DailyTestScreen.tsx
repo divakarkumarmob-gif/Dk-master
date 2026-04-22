@@ -88,11 +88,8 @@ export default function DailyTestScreen({ testConfig, onBack }: TestProps) {
           generatedQuestions = await geminiService.generateQuestions(testConfig.subject!, testConfig.chapter!, 30);
           initialTime = 30 * 60; // 30 mins
         } else if (testConfig.type === 'Major') {
-          // Major test
-          const bio = await geminiService.generateQuestions('Biology', 'Full Syllabus', 90);
-          const phy = await geminiService.generateQuestions('Physics', 'Full Syllabus', 45);
-          const chem = await geminiService.generateQuestions('Chemistry', 'Full Syllabus', 45);
-          generatedQuestions = [...phy, ...chem, ...bio];
+          // Major test - Batched request
+          generatedQuestions = await geminiService.generateFullSyllabusTest();
           initialTime = 180 * 60; // 180 mins
         } else {
           // Fallback or handle unknown type

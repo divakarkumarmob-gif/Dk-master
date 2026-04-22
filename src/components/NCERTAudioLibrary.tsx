@@ -47,12 +47,13 @@ export const NCERTAudioLibrary: React.FC = () => {
     setText(null);
     
     try {
+      const cacheKey = `podcast_${chapter.toLowerCase().replace(/\s+/g, '_')}`;
       const prompt = `Act as an expert NEET educator. Create a concise, conversational NCERT revision podcast script (about 3-4 minutes) for the chapter: "${chapter}" (${subject}). 
       Focus on critical concepts, memory mnemonics, and frequent NEET question areas. 
       Use a mix of Hindi and English (Hinglish) to keep it engaging.
       Format: Return ONLY the script text. No intro/outro formatting.`;
       
-      const res = await geminiService.solveDoubt(prompt);
+      const res = await geminiService.solveDoubt(prompt, undefined, undefined, cacheKey);
       if (res) {
         setText(res);
         // In a real app, we would use TTS here.

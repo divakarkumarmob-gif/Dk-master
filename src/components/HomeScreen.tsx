@@ -84,21 +84,33 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
   const daysLeft = differenceInDays(targetDate, new Date());
 
   useEffect(() => {
-    const fetchQuote = async () => {
+    // We strictly avoid auto-calls on mount to conserve quota.
+    // Quotes are only fetched if triggered by user or already in cache.
+    const today = new Date().toISOString().split('T')[0];
+    const cached = localStorage.getItem(`gemini_cache_daily_quote_${today}`);
+    if (cached) {
       try {
-        const q = await geminiService.solveDoubt("Give me a short, powerful motivational quote for a NEET aspirant. Exactly 2-4 lines only. Avoid special symbols like #, *, $, /.");
-        if (q && !q.includes("cooling down")) {
-          setQuote(q);
-        } else {
-          setQuote(FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)]);
-        }
-      } catch (e) {
-        console.error("Quote fetch failed", e);
-        setQuote(FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)]);
-      }
-    };
-    fetchQuote();
+        const { data } = JSON.parse(cached);
+        setQuote(data);
+      } catch(e) {}
+    }
   }, []);
+
+  const fetchManualQuote = async () => {
+    const today = new Date().toISOString().split('T')[0];
+    const cacheKey = `daily_quote_${today}`;
+    try {
+      const q = await geminiService.solveDoubt(
+        "Give me a short, powerful motivational quote for a NEET aspirant. Exactly 2-4 lines only.",
+        undefined,
+        undefined,
+        cacheKey
+      );
+      if (q) setQuote(q);
+    } catch (e) {
+      setQuote(FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)]);
+    }
+  };
 
   const hasCompletedTest = (subject: string, chapter: string) => {
     return results.some(r => r.type === 'Minor' && r.subject === subject && r.chapter === chapter && r.correct >= 25);
@@ -290,10 +302,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
             <Leaderboard />
         </div>
 
-        <div className="quote-box">
+        <div className="quote-box group cursor-pointer" onClick={fetchManualQuote}>
           <p className="text-base italic leading-relaxed font-serif mb-3 text-olive-dark">"{quote}"</p>
           <div className="flex justify-between items-center">
-            <p className="text-[10px] uppercase tracking-wider font-extrabold opacity-40">Daily Inspiration</p>
+            <p className="text-[10px] uppercase tracking-wider font-extrabold opacity-40">Tap for daily Inspiration</p>
             <p className="text-[10px] uppercase tracking-widest font-black text-orange-accent/50">powered by dk</p>
           </div>
         </div>

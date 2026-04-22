@@ -39,13 +39,15 @@ export const SmartFlashcards: React.FC = () => {
     setIsFlipped(false);
     
     try {
-      const chapterList = Object.entries(dailyData.chapters).map(([s, c]) => `${s}: ${c}`).join(', ');
+      const chapterList = Object.entries(dailyData.chapters).map(([s, c]) => `${s}: ${c}`).sort().join(', ');
+      const cacheKey = `flashcards_${chapterList.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+      
       const prompt = `Act as an expert NEET educator. Generate 8 high-impact 'Smart Flashcards' (Front: Concept/Question, Back: Concise Answer) for these NCERT chapters: ${chapterList}. 
       Focus on tricky terms, diagrams, values, or scientist names. 
       Format: JSON array of objects with 'id', 'front', 'back', 'subject'.
       Plain text only. No symbols.`;
       
-      const response = await geminiService.solveDoubt(prompt);
+      const response = await geminiService.solveDoubt(prompt, undefined, undefined, cacheKey);
       if (response) {
         // Simple extraction since AI might output text around it
         const jsonMatch = response.match(/\[[\s\S]*\]/);

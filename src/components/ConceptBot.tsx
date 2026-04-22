@@ -34,11 +34,12 @@ export const ConceptBot: React.FC = () => {
   const { addNote } = useAppStore();
 
   const generateSheet = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || loading) return;
     setLoading(true);
     setData(null);
     setSaved(false);
     try {
+      const cacheKey = `cheat_sheet_${input.toLowerCase().trim()}`;
       const prompt = `Act as an elite NEET ranker. Create a "Combat Cheat Sheet" for the concept: "${input}". 
       Focus on high-yield information and quick recall. 
       Format strictly as a JSON object: 
@@ -51,7 +52,7 @@ export const ConceptBot: React.FC = () => {
       }
       Include 2-3 formulas and 2 exam traps. Use Hinglish if it helps the mnemonic.`;
       
-      const response = await geminiService.solveDoubt(prompt);
+      const response = await geminiService.solveDoubt(prompt, undefined, undefined, cacheKey);
       if (response) {
         const jsonMatch = response.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
