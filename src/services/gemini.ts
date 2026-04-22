@@ -64,7 +64,7 @@ export const geminiService = {
       }`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
+        model: "gemini-1.5-flash-latest",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -90,7 +90,7 @@ export const geminiService = {
       }`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
+        model: "gemini-1.5-flash-latest",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -173,7 +173,7 @@ export const geminiService = {
   async analyzeImage(imageData: string, customPrompt?: string) {
     return handleGeminiCall(async () => {
       const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
+        model: "gemini-1.5-flash-latest",
         contents: {
           parts: [
             { inlineData: { data: imageData.split(',')[1], mimeType: "image/png" } },
@@ -191,7 +191,7 @@ export const geminiService = {
   async extractQuestionsFromImage(imageData: string) {
     return handleGeminiCall(async () => {
       const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
+        model: "gemini-1.5-flash-latest",
         contents: {
           parts: [
             { inlineData: { data: imageData.split(',')[1], mimeType: "image/png" } },
@@ -223,7 +223,7 @@ export const geminiService = {
     return handleGeminiCall(async () => {
       const prompt = `Summarize: ${text}. Plain text only.`;
       const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
+        model: "gemini-1.5-flash-latest",
         contents: prompt,
       });
       return response.text;
@@ -234,7 +234,7 @@ export const geminiService = {
     return handleGeminiCall(async () => {
       const prompt = `Study plan based on: ${performanceData}. Plain text.`;
       const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
+        model: "gemini-1.5-flash-latest",
         contents: prompt,
       });
       return response.text;

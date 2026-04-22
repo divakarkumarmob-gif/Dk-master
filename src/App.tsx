@@ -30,11 +30,45 @@ export default function App() {
   const { user, setUser, setFullState, theme, updateStreak, activeTab, setActiveTab, cleanupOldChatHistory } = useAppStore();
   const [activeTest, setActiveTest] = useState<{ 
     id: string; 
-    type: 'Minor' | 'Major'; 
+    type: 'Minor' | 'Major' | 'Custom'; 
     subject?: string; 
     chapter?: string;
     questions?: Question[];
-  } | null>(null);
+  } | null>(() => {
+    // Restore state from localStorage on init
+    const saved = localStorage.getItem('activeTest');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  useEffect(() => {
+    // Save state to localStorage whenever it changes
+    if (activeTest) {
+      localStorage.setItem('activeTest', JSON.stringify(activeTest));
+    } else {
+      localStorage.removeItem('activeTest');
+    }
+  }, [activeTest]);
+
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (activeTest) {
+        event.preventDefault();
+        // Prevent back from exiting app, close test instead
+        setActiveTest(null);
+        window.history.pushState(null, '', window.location.href);
+      }
+    };
+
+    if (activeTest) {
+      window.history.pushState(null, '', window.location.href);
+      window.addEventListener('popstate', handlePopState);
+    }
+
+    return () => {
+        window.removeEventListener('popstate', handlePopState);
+    };
+  }, [activeTest]);
+
   const [isSyncing, setIsSyncing] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
 

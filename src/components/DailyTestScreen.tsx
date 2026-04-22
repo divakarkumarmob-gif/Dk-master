@@ -19,7 +19,7 @@ import confetti from 'canvas-confetti';
 interface TestProps {
   testConfig: { 
     id: string; 
-    type: 'Minor' | 'Major'; 
+    type: 'Minor' | 'Major' | 'Custom'; 
     subject?: string; 
     chapter?: string; 
     isErrorFix?: boolean;
@@ -45,37 +45,56 @@ export default function DailyTestScreen({ testConfig, onBack }: TestProps) {
   useEffect(() => {
     const initTest = async () => {
       try {
+        const savedProgress = localStorage.getItem(`test_progress_${testConfig.id}`);
+        
         let generatedQuestions: Question[] = [];
-        if (testConfig.questions && testConfig.questions.length > 0) {
+        let initialAnswers: (number | null)[] = [];
+        let initialIndex = 0;
+        let initialTime = 0;
+
+        if (savedProgress) {
+            const progress = JSON.parse(savedProgress);
+            generatedQuestions = progress.questions;
+            initialAnswers = progress.userAnswers;
+            initialIndex = progress.currentIndex;
+            initialTime = progress.timeLeft;
+        } else if (testConfig.questions && testConfig.questions.length > 0) {
           generatedQuestions = testConfig.questions;
-          setTimeLeft(generatedQuestions.length * 2 * 60); // 2 mins per question
+          initialTime = generatedQuestions.length * 2 * 60; // 2 mins per question
         } else if (testConfig.isErrorFix) {
           const { mistakeVault } = useAppStore.getState();
           const weakConcepts = mistakeVault.slice(-15).map(q => `${q.subject}: ${q.chapter}`).join(', ');
           generatedQuestions = await geminiService.generateErrorFixQuestions(weakConcepts, 20);
-          setTimeLeft(25 * 60); // 25 mins
+          initialTime = 25 * 60; // 25 mins
         } else if (testConfig.type === 'Minor') {
           generatedQuestions = await geminiService.generateQuestions(testConfig.subject!, testConfig.chapter!, 30);
-          setTimeLeft(30 * 60); // 30 mins
-        } else {
+          initialTime = 30 * 60; // 30 mins
+        } else if (testConfig.type === 'Major') {
           // Major test
           const bio = await geminiService.generateQuestions('Biology', 'Full Syllabus', 90);
           const phy = await geminiService.generateQuestions('Physics', 'Full Syllabus', 45);
           const chem = await geminiService.generateQuestions('Chemistry', 'Full Syllabus', 45);
           generatedQuestions = [...phy, ...chem, ...bio];
-          setTimeLeft(180 * 60); // 180 mins
+          initialTime = 180 * 60; // 180 mins
+        } else {
+          // Fallback or handle unknown type
+          console.warn("Unknown test type:", testConfig.type);
+          generatedQuestions = [];
+          initialTime = 0;
         }
         
         // Ensure strictly formatted questions
         const sanitized = generatedQuestions.map((q, i) => ({
           ...q,
-          id: `q-${i}-${Date.now()}`,
+          id: q.id || `q-${i}-${Date.now()}`,
           subject: q.subject || (testConfig.subject as any) || 'General',
           chapter: q.chapter || (testConfig.chapter as any) || 'General'
         }));
 
         setQuestions(sanitized);
-        setUserAnswers(new Array(sanitized.length).fill(null));
+        setUserAnswers(savedProgress ? initialAnswers : new Array(sanitized.length).fill(null));
+        setCurrentIndex(savedProgress ? initialIndex : 0);
+        setTimeLeft(savedProgress ? initialTime : initialTime);
         setLoading(false);
       } catch (e) {
         console.error("Failed to generate questions", e);
@@ -86,6 +105,17 @@ export default function DailyTestScreen({ testConfig, onBack }: TestProps) {
 
     initTest();
   }, [testConfig]);
+
+  useEffect(() => {
+    if (!loading && !submitted) {
+        localStorage.setItem(`test_progress_${testConfig.id}`, JSON.stringify({
+            questions,
+            userAnswers,
+            currentIndex,
+            timeLeft
+        }));
+    }
+  }, [loading, submitted, questions, userAnswers, currentIndex, timeLeft, testConfig.id]);
 
   useEffect(() => {
     if (!loading && !submitted && timeLeft > 0) {
@@ -115,6 +145,8 @@ export default function DailyTestScreen({ testConfig, onBack }: TestProps) {
     const { addToMistakeVault } = useAppStore.getState();
     setSubmitted(true);
     if (timerRef.current) clearInterval(timerRef.current);
+    localStorage.removeItem(`test_progress_${testConfig.id}`);
+
 
     // Calculate score and collect mistakes
     let correct = 0;
