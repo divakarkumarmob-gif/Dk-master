@@ -23,7 +23,8 @@ export const customBank = {
     { question: "compress natur ga ( cng ) is", options: ["propan", "methan", "ethan", "butan"], correctAnswer: 1, explanation: "CNG is primarily methane." },
     { question: "neanderth man live in", options: ["desert", "deep forest", "mountain", "cave"], correctAnswer: 3, explanation: "Neanderthals are known as cave dwellers." },
     { question: "part of the brain act as relay centr is", options: ["thalamu", "hypothalamu", "pituitari", "cerebellum"], correctAnswer: 0, explanation: "Thalamus is the major relay center for sensory information." },
-    { question: "one of them is absent in close vascular bundl", options: ["vascular bundl", "cambium", "pith", "ground tissu"], correctAnswer: 1, explanation: "Closed vascular bundles lack cambium." }
+    { question: "one of them is absent in close vascular bundl", options: ["vascular bundl", "cambium", "pith", "ground tissu"], correctAnswer: 1, explanation: "Closed vascular bundles lack cambium." },
+    { question: "cork is use for insul and act as shock absorb becaus", options: ["it is porou", "it is veri hard", "it is light and doe not catch fire easili", "dead cells with suberin"], correctAnswer: 3, explanation: "Cork acts as an insulator due to suberin in its dead cells." }
   ],
   Physics: [
     { question: "The SI unit of force is", options: ["Joule", "Newton", "Pascal", "Watt"], correctAnswer: 1, explanation: "Newton is the SI unit of force." },
