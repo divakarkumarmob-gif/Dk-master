@@ -21,7 +21,7 @@ export interface Question {
 
 export interface TestResult {
   id: string;
-  type: 'Minor' | 'Major';
+  type: 'Minor' | 'Major' | 'Custom';
   subject?: string;
   chapter?: string;
   score: number;

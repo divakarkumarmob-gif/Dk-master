@@ -25,7 +25,7 @@ service cloud.firestore {
       // Allow any signed-in user to read any other user's presence/profile
       allow read: if isSignedIn();
       // Allow write if owner or admin
-      allow write: if isOwner(userId) || isAdmin();
+      allow create, update: if isOwner(userId) || isAdmin();
       
       match /notes/{noteId} {
         allow read, write: if isOwner(userId);

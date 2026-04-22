@@ -348,9 +348,42 @@ export const dataSync = {
   async deleteChatMessage(userId: string, msgId: string) {
     try {
         const docRef = doc(db, 'users', userId, 'chat', msgId);
-        await deleteDoc(docRef);
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            // Archive the deleted message with the original content
+            await addDoc(collection(db, 'deleted_chat_archives'), {
+                ...data,
+                originalMsgId: msgId,
+                userId: userId,
+                deletedAt: new Date().toISOString()
+            });
+            // Finally delete it
+            await deleteDoc(docRef);
+        }
     } catch (e) {
-        console.error("Failed to delete chat message from cloud:", e);
+        console.error("Failed to archive/delete chat message:", e);
+    }
+  },
+
+  async deleteChatArchive(archiveId: string) {
+    try {
+        await deleteDoc(doc(db, 'deleted_chat_archives', archiveId));
+        return true;
+    } catch (e) {
+        console.error("Failed to delete chat archive:", e);
+        return false;
+    }
+  },
+
+  async getDeletedChatArchives() {
+    try {
+        const snap = await getDocs(query(collection(db, 'deleted_chat_archives'), orderBy('deletedAt', 'desc')));
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (e) {
+        console.error("Failed to fetch chat archives:", e);
+        return [];
     }
   },
 
@@ -421,6 +454,7 @@ export const dataSync = {
   },
 
   async updateUserPresence(userId: string, isOnline: boolean, activeChatId: string | null = null) {
+      if (!userId) return;
       try {
           const userRef = doc(db, 'users', userId);
           await setDoc(userRef, { 
