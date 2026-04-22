@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Youtube, Loader2 } from 'lucide-react';
+import { X, Youtube, Loader2, Search } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface VideoModalProps {
@@ -69,15 +69,25 @@ export const VideoModal: React.FC<VideoModalProps> = ({ videoId, onClose, title 
                 
                 {/* Always show escape hatch for restricted videos */}
                 {!iframeLoading && (
-                  <div className="absolute bottom-4 left-4 z-20 pointer-events-auto">
+                  <div className="absolute bottom-4 left-4 right-4 z-20 flex items-center justify-between pointer-events-none">
                       <a 
                         href={`https://www.youtube.com/watch?v=${videoId}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="bg-black/60 hover:bg-black/80 backdrop-blur-md px-3 py-2 rounded-lg text-[9px] font-black text-white border border-white/20 flex items-center gap-2 transition-all active:scale-95 shadow-xl"
+                        className="bg-black/60 hover:bg-black/80 backdrop-blur-md px-3 py-2 rounded-lg text-[9px] font-black text-white border border-white/20 flex items-center gap-2 transition-all active:scale-95 shadow-xl pointer-events-auto"
                       >
                         <Youtube size={12} className="text-red-500" />
-                        Broken? Open in YT App
+                        Broken? Open in YT
+                      </a>
+
+                      <a 
+                        href={`https://www.youtube.com/results?search_query=${encodeURIComponent(title || '')}+full+lecture+neet`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-black/60 hover:bg-black/80 backdrop-blur-md px-3 py-2 rounded-lg text-[9px] font-black text-white border border-white/20 flex items-center gap-2 transition-all active:scale-95 shadow-xl pointer-events-auto"
+                      >
+                        <Search size={12} className="text-emerald-500" />
+                        Try Another Source
                       </a>
                   </div>
                 )}

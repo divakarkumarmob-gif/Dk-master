@@ -31,14 +31,25 @@ export default function App() {
   const { user, setUser, setFullState, theme, updateStreak, activeTab, setActiveTab, cleanupOldChatHistory } = useAppStore();
   const [activeTest, setActiveTest] = useState<{ 
     id: string; 
-    type: 'Minor' | 'Major' | 'Custom'; 
+    type: 'Minor' | 'Major'; 
     subject?: string; 
     chapter?: string;
     questions?: Question[];
   } | null>(() => {
     // Restore state from localStorage on init
-    const saved = localStorage.getItem('activeTest');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('activeTest');
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      // Safety: If it's the bugged 'Custom' type, discard it
+      if (parsed.type === 'Custom') {
+        localStorage.removeItem('activeTest');
+        return null;
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
   });
 
   useEffect(() => {

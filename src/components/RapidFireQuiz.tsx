@@ -13,7 +13,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
-import { geminiService } from '../services/gemini';
+import { geminiService, safeJsonParse } from '../services/gemini';
 import { cn } from '../lib/utils';
 import Confetti from 'react-confetti';
 import { Spinner } from './Spinner';
@@ -53,11 +53,11 @@ export const RapidFireQuiz: React.FC = () => {
       
       const response = await geminiService.solveDoubt(prompt);
       if (response && typeof response === 'string') {
-        const jsonMatch = response.match(/\[[\s\S]*\]/);
-        if (jsonMatch) {
-            setQuestions(JSON.parse(jsonMatch[0]));
+        const parsed = safeJsonParse(response, []);
+        if (parsed && parsed.length > 0) {
+            setQuestions(parsed);
         } else {
-            throw new Error("No JSON in AI response");
+            throw new Error("No valid questions in AI response");
         }
       } else {
           // AI Fallback if result isn't what we expect

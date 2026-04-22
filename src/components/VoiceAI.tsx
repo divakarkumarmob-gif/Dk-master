@@ -166,11 +166,11 @@ export const VoiceAI: React.FC = () => {
 
     // Summary detection
     if (lowerText === "summary" || lowerText === "summarise") {
-      const lastAIResponse = chatHistory.slice().reverse().find(m => m.role === 'ai');
+      const lastAIResponse = chatHistory.slice().reverse().find(m => m.role === 'ai' && m.text);
       if (lastAIResponse) {
         setIsProcessing(true);
         setResponse('');
-        const summary = await geminiService.summarizeResponse(lastAIResponse.text);
+        const summary = await geminiService.summarizeResponse(lastAIResponse.text || "");
         if (summary) {
           const summaryText = `[SUMMARY]: ${summary}`;
           setResponse(summaryText);

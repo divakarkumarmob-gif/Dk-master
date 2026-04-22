@@ -135,7 +135,11 @@ function extractKeywords(q: string) {
 // Application Logic
 const otps = new Map<string, { code: string; expiry: number }>();
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const aiKey = process.env.GEMINI_API_KEY;
+if (!aiKey) {
+  console.error('[AI] CRITICAL: GEMINI_API_KEY is not defined in the environment.');
+}
+const ai = new GoogleGenAI({ apiKey: aiKey || '' });
 
 // API Endpoints - Protected by authMiddleware
 app.post('/api/auth/send-otp', authMiddleware, async (req: AuthRequest, res) => {
@@ -246,6 +250,10 @@ app.post('/api/ask', authMiddleware, async (req: AuthRequest, res) => {
   }
 
   // --- CACHE MISS: CALL AI ---
+  if (!process.env.GEMINI_API_KEY) {
+    return res.status(500).json({ error: 'AI Configuration Error: Missing API Key on server.' });
+  }
+
   // Apply abuse/rate limit ONLY here
   const allowed = await checkCooldownAndRateLimit(uid, res as any);
   if (!allowed) return; // response already sent
@@ -266,11 +274,25 @@ app.post('/api/ask', authMiddleware, async (req: AuthRequest, res) => {
         }
     });
 
-    if (!result || !result.text) {
-        throw new Error("AI returned empty response");
+    if (!result) {
+        throw new Error("AI engine failed to produce response object");
     }
 
-    const answer = result.text;
+    let answer = "";
+    try {
+        answer = result.text;
+    } catch (e) {
+        console.warn("result.text failed (likely safety filters):", e);
+        if (result.candidates && result.candidates.length > 0) {
+            answer = result.candidates[0].content?.parts?.[0]?.text || "Response blocked by safety filters.";
+        } else {
+            answer = "I'm sorry, I couldn't generate a safe response. Please try rephrasing your doubt.";
+        }
+    }
+
+    if (!answer) {
+        return res.status(200).json({ answer: "Neural Link timed out. Practice NCERT while we re-sync." });
+    }
 
     // Store in Firestore memory
     db.collection('ai_memory').add({

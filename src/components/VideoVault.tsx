@@ -46,13 +46,24 @@ export const VideoVault: React.FC = () => {
 
   const handlePlayVideo = async (video: VideoSource) => {
     setLoadingId(video.id);
-    const videoId = await geminiService.getYoutubeVideoId(video.title);
-    if (videoId) {
-        setActiveVideo({ id: videoId, title: video.title });
-    } else {
+    
+    const videoIdPromise = geminiService.getYoutubeVideoId(video.title);
+    const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000));
+
+    try {
+        const videoId = await Promise.race([videoIdPromise, timeoutPromise]);
+        
+        if (videoId) {
+            setActiveVideo({ id: videoId, title: video.title });
+        } else {
+            // Fallback to searching if AI fails or times out
+            window.open(video.url, '_blank');
+        }
+    } catch (e) {
         window.open(video.url, '_blank');
+    } finally {
+        setLoadingId(null);
     }
-    setLoadingId(null);
   };
 
   return (

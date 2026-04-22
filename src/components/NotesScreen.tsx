@@ -41,8 +41,8 @@ const NotesScreen: React.FC = () => {
   const [isAddingNote, setIsAddingNote] = useState(false);
 
   const filteredStarred = starredQuestions.filter(q => 
-    q.text.toLowerCase().includes(search.toLowerCase()) || 
-    q.chapter.toLowerCase().includes(search.toLowerCase())
+    (q && q.text && q.text.toLowerCase().includes(search.toLowerCase())) || 
+    (q && q.chapter && q.chapter.toLowerCase().includes(search.toLowerCase()))
   );
 
   const filteredNotes = notes.filter(n => 

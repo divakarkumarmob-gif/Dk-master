@@ -177,17 +177,17 @@ export const AISection: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       );
       if (response) {
         const aiMsgId = (Date.now() + 1).toString();
-        setCurrentMessages(prev => [...prev, { id: aiMsgId, role: 'ai', text: response }]);
+        setCurrentMessages(prev => [...prev, { id: aiMsgId, role: 'ai', text: response || "Analysis complete." }]);
         addChatMessage({
           id: aiMsgId,
           role: 'ai',
-          text: response,
+          text: response || "Analysis complete.",
           timestamp: new Date().toISOString()
         });
         setShowSummaryBtn(currentMessages.length + 1);
       }
     } catch (e) {
-      setCurrentMessages(prev => [...prev, { id: Date.now().toString(), role: 'ai', text: "Sorry, I'm having trouble connecting right now. Please try again later." }]);
+      setCurrentMessages(prev => [...prev, { id: Date.now().toString(), role: 'ai', text: "Neural Link Latency: I'm having trouble connecting right now. Please practice NCERT while I re-sync." }]);
     }
     setLoading(false);
     setTempImageFile(null);

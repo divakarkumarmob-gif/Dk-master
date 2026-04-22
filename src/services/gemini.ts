@@ -5,7 +5,7 @@ import { collection, query, where, limit, getDocs, addDoc, serverTimestamp } fro
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
-const handleGeminiCall = async (fn: () => Promise<any>, fallback?: any, cacheKey?: string) => {
+const handleGeminiCall = async <T>(fn: () => Promise<T>, fallback: T, cacheKey?: string): Promise<T> => {
   // Check cache first
   if (cacheKey) {
     try {
@@ -24,23 +24,63 @@ const handleGeminiCall = async (fn: () => Promise<any>, fallback?: any, cacheKey
 
   try {
     const data = await fn();
-    if (cacheKey && data) {
+    if (data === undefined || data === null) return fallback;
+    
+    if (cacheKey) {
       localStorage.setItem(`gemini_cache_${cacheKey}`, JSON.stringify({ data, timestamp: Date.now() }));
     }
     return data;
   } catch (error: any) {
-    console.error("Gemini API Error:", error);
-    return fallback || null;
+    console.error("Gemini/Server API Error:", error);
+    
+    const errorMsg = error?.message || "";
+    if (errorMsg.includes('Server Error (401)') || errorMsg.includes('Unauthorized: Missing or invalid token')) {
+      console.error("CRITICAL: User Session Expired or Auth Header Missing.");
+    } else if (error?.status === 401 || errorMsg.includes('Unauthorized')) {
+      console.error("CRITICAL: Invalid Gemini API Key.");
+    }
+    
+    return fallback;
   }
 };
 
-const safeJsonParse = (text: string, fallback: any = []) => {
+const validateQuestion = (q: any): any => {
+  if (!q || typeof q !== 'object') return null;
+  const text = q.text || q.question || "Neural Data Link...";
+  const options = Array.isArray(q.options) && q.options.length >= 2 ? q.options : ["Data Locked", "Analysis Fail", "Core Syncing", "Retry Link"];
+  const correctAnswer = typeof q.correctAnswer === 'number' ? q.correctAnswer : (typeof q.answer === 'number' ? q.answer : 0);
+  const explanation = q.explanation || "Authentication of data source in progress. Refer to NCERT.";
+  
+  return {
+    ...q,
+    text,
+    question: text, // Backward compatibility
+    options,
+    correctAnswer,
+    explanation,
+    id: q.id || `q-${Math.random().toString(36).substr(2, 9)}`
+  };
+};
+
+export const safeJsonParse = (text: string | null | undefined, fallback: any = []) => {
+    if (!text) return fallback;
     try {
         // Remove markdown code blocks if present
         const cleanJson = text.replace(/```json|```/g, '').trim();
-        return JSON.parse(cleanJson);
+        const parsed = JSON.parse(cleanJson);
+        
+        if (Array.isArray(parsed)) {
+          return parsed.map(validateQuestion).filter(Boolean);
+        }
+        
+        return parsed;
     } catch (e) {
         console.error("JSON Parse Error:", e, "Raw text:", text);
+        // Try to extract JSON array if initial parse failed
+        const match = text.match(/\[[\s\S]*\]/);
+        if (match) {
+           return safeJsonParse(match[0], fallback);
+        }
         return fallback;
     }
 };
@@ -86,6 +126,7 @@ export const geminiService = {
         }
       });
 
+      if (!response) throw new Error("No response from AI");
       return safeJsonParse(response.text || '[]', FALLBACK_QUESTIONS);
     }, FALLBACK_QUESTIONS, cacheKey);
   },
@@ -112,12 +153,13 @@ export const geminiService = {
         }
       });
 
+      if (!response) throw new Error("No response from AI");
       return safeJsonParse(response.text || '[]', FALLBACK_QUESTIONS);
     }, FALLBACK_QUESTIONS);
   },
 
   async solveDoubt(doubt: string, context?: string, imageData?: { data: string, mimeType: string }) {
-    if (!doubt && !imageData) return null;
+    if (!doubt && !imageData) return "Protocol Error: No input detected.";
     const keywords = doubt ? doubt.toLowerCase().split(' ').filter(word => word.length > 4) : [];
 
     // 1. Search Memory (Firestore) - Only if it's text-only
@@ -132,7 +174,10 @@ export const geminiService = {
                 limit(1)
             );
             const snapshot = await getDocs(q);
-            if (!snapshot.empty) return snapshot.docs[0].data().answer;
+            if (!snapshot.empty) {
+              const data = snapshot.docs[0].data();
+              if (data && data.answer) return data.answer;
+            }
         } catch(e) {
             console.error("Memory search failed:", e);
         }
@@ -141,40 +186,30 @@ export const geminiService = {
 
     // 2. Ask AI
     const answer = await handleGeminiCall(async () => {
-        const parts: any[] = [];
-        if (imageData) {
-          parts.push({
-            inlineData: imageData
-          });
-        }
-        if (doubt) {
-          parts.push({ text: doubt });
-        } else if (imageData) {
-          parts.push({ text: "What is in this image? Explain simply." });
-        }
+        const idToken = await auth.currentUser?.getIdToken();
+        if (!idToken) throw new Error("Unauthorized: User not signed in");
 
-        const promptContext = `Context: ${context || 'NEET'}\n
-        ROLE: NEET Expert.
-        RULES: ONLY direct answer. MAX 2 sentences. No 'Hi', 'Hello', 'As a...', or 'Good luck'. Hinglish. Plain text only. No symbols.`;
-        
         const result = await fetch('/api/ask', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question: doubt })
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${idToken}`
+            },
+            body: JSON.stringify({ question: doubt, image: imageData })
         });
         
         if (!result.ok) {
-            const errorText = await result.text();
+            const errorText = await result.text().catch(() => "Unknown Connection Fail");
             throw new Error(`Server Error (${result.status}): ${errorText}`);
         }
         
         const contentType = result.headers.get("content-type");
         if (contentType && contentType.includes("application/json")) {
             const data = await result.json();
-            return data.answer || "I'm having trouble connecting right now.";
+            return data.answer || "Processing anomaly: AI returned empty response.";
         } else {
             const text = await result.text();
-            return text || "Connection unstable. Please try again.";
+            return text || "Neural link stable but silent. Retry protocol.";
         }
     }, "I am sorry, but my neural core is currently cooling down. Please practice NCERT chapters meanwhile!");
 
@@ -211,7 +246,7 @@ export const geminiService = {
           systemInstruction: "You are an expert NEET mentor. Be concise. Use plain text. Focus only on key points found in image."
         }
       });
-      return response.text;
+      return response?.text || "No analysis available.";
     }, "Unable to analyze the image at the moment.");
   },
 
@@ -242,18 +277,20 @@ export const geminiService = {
           responseMimeType: "application/json",
         }
       });
+      if (!response) throw new Error("No response from AI");
       return safeJsonParse(response.text || '[]', []);
     }, []);
   },
 
-  async summarizeResponse(text: string) {
+  async summarizeResponse(text: string | null | undefined): Promise<string> {
+    if (!text) return "Insufficient data for summary.";
     return handleGeminiCall(async () => {
       const prompt = `Summarize: ${text}. Plain text only.`;
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: prompt,
       });
-      return response.text;
+      return response?.text || text.substring(0, 100) + "...";
     }, text.substring(0, 100) + "...");
   },
 
@@ -264,7 +301,7 @@ export const geminiService = {
         model: "gemini-3-flash-preview",
         contents: prompt,
       });
-      return response.text;
+      return response?.text || "Unable to generate study plan.";
     }, "Focus on NCERT Biology diagrams and Physics formulas for the next 7 days. Keep practicing!");
   },
 
@@ -275,21 +312,27 @@ export const geminiService = {
     if (localId) return localId;
 
     return handleGeminiCall(async () => {
-      // Use Google Search to find working/embeddable YouTube IDs
-      const prompt = `Find the MOST POPULAR and WORKING YouTube video ID for a full chapter NEET lecture on the topic: "${topic}" ${subject ? `(${subject})` : ''}. 
-      Prefer videos from top channels like "Competition Wallah", "Unacademy NEET", or "Physics Wallah".
-      The video MUST allow embedding. 
-      Return ONLY the 11-character YouTube video ID. Do NOT include any other text or explanation. 
-      Example: dQw4w9WgXcQ`;
+      // Use Google Search grounding to find real, embeddable YouTube IDs
+      const prompt = `Use Google Search to find the exact YouTube video ID for a high-quality, full NCERT lecture on: "${topic}" ${subject ? `(${subject})` : ''}.
       
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+      REQUIREMENTS:
+      1. Channels: Look for "Physics Wallah", "Unacademy NEET", "Aakash by BYJU'S", or "Competition Wallah".
+      2. Status: The video MUST be embeddable and currently available (not deleted).
+      3. Topic Match: Must match the chapter name: ${topic}.
+      
+      Return ONLY the 11-character YouTube video ID. No other text.`;
+      
+      const response = await ai.models.generateContent({ 
+        model: "gemini-3-flash-preview", 
         contents: prompt,
-        tools: [{ googleSearch: {} }]
+        config: {
+          tools: [{ googleSearch: {} }] 
+        }
       });
       
+      if (!response) throw new Error("No response from AI");
       const id = response.text?.trim();
-      // Extract first 11-char sequence that looks like a YT ID if there's noise
+      // Extract first 11-char sequence if there's noise
       const match = id?.match(/[a-zA-Z0-9_-]{11}/);
       const cleanId = match ? match[0] : null;
 
@@ -297,6 +340,6 @@ export const geminiService = {
           return cleanId;
       }
       return null;
-    });
+    }, null);
   }
 };

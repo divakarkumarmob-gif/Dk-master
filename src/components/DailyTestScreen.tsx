@@ -20,7 +20,7 @@ import confetti from 'canvas-confetti';
 interface TestProps {
   testConfig: { 
     id: string; 
-    type: 'Minor' | 'Major' | 'Custom'; 
+    type: 'Minor' | 'Major'; 
     subject?: string; 
     chapter?: string; 
     isErrorFix?: boolean;
@@ -220,7 +220,10 @@ export default function DailyTestScreen({ testConfig, onBack }: TestProps) {
     setShowResultMsg(true);
   };
 
-  const isStarred = (q: Question) => starredQuestions.some(sq => sq.text === q.text);
+  const isStarred = (q: Question | undefined | null) => {
+    if (!q || !q.text) return false;
+    return starredQuestions.some(sq => sq && sq.text === q.text);
+  };
 
   if (loading) {
     return (
