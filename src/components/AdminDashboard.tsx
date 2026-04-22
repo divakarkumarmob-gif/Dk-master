@@ -48,10 +48,33 @@ export default function AdminDashboard() {
 
   // State for sidebar expansion
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
-  // Close sidebar on content area click
-  const handleContentClick = () => {
-    if (!isSidebarOpen) setIsSidebarOpen(true);
+  // Minimum swipe distance (pixels)
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isRightSwipe) {
+      setIsSidebarOpen(true);
+    } else if (isLeftSwipe) {
+      setIsSidebarOpen(false);
+    }
   };
 
   const menuItems = [
@@ -63,13 +86,19 @@ export default function AdminDashboard() {
   ] as const;
 
   return (
-    <div className="flex min-h-screen bg-slate-50" onClick={handleContentClick}>
+    <div 
+      className="flex h-screen bg-slate-50 overflow-hidden"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
       {/* Sidebar Navigation */}
       <div 
         className={cn(
-          "bg-white border-r border-slate-100 p-6 flex flex-col gap-6 transition-[width] duration-500 ease-out z-20 will-change-transform",
+          "bg-white border-r border-slate-100 p-6 flex flex-col gap-6 transition-[width] duration-500 ease-out z-20 will-change-transform cursor-pointer h-full overflow-y-auto",
           isSidebarOpen ? "w-64" : "w-20"
         )}
+        onClick={() => setIsSidebarOpen(true)}
       >
         <div className="flex items-center gap-2 text-slate-800">
           <Shield className="text-orange-500 shrink-0" />
@@ -100,10 +129,9 @@ export default function AdminDashboard() {
       {/* Main Content Area */}
       <div 
           className={cn(
-            "flex-1 p-8 transition-colors duration-500 bg-blue-500",
+            "flex-1 p-8 transition-colors duration-500 bg-blue-500 h-full overflow-y-auto",
             !isSidebarOpen ? "opacity-100" : "opacity-60"
           )}
-          onClick={(e) => { e.stopPropagation(); setIsSidebarOpen(true); }}
       >
         <h2 className="text-2xl font-black text-white mb-6 capitalize">{menuItems.find(m => m.id === view)?.label}</h2>
         
