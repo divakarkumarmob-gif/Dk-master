@@ -84,32 +84,60 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
   const daysLeft = differenceInDays(targetDate, new Date());
 
   useEffect(() => {
-    // We strictly avoid auto-calls on mount to conserve quota.
-    // Quotes are only fetched if triggered by user or already in cache.
-    const today = new Date().toISOString().split('T')[0];
-    const cached = localStorage.getItem(`gemini_cache_daily_quote_${today}`);
-    if (cached) {
+    // Check for weekly cache
+    const today = new Date();
+    // Simple week identifier (e.g., ISO week or simply year-week)
+    const weekId = format(today, 'Y-ww');
+    const dayOfWeek = today.getDay(); // 0 is Sunday, 6 is Saturday
+
+    const storedWeekly = localStorage.getItem('weekly_quotes_cache');
+    if (storedWeekly) {
       try {
-        const { data } = JSON.parse(cached);
-        setQuote(data);
+        const { week, quotes } = JSON.parse(storedWeekly);
+        if (week === weekId && Array.isArray(quotes) && quotes.length === 7) {
+            setQuote(quotes[dayOfWeek]);
+            return;
+        }
       } catch(e) {}
     }
   }, []);
 
   const fetchManualQuote = async () => {
-    const today = new Date().toISOString().split('T')[0];
-    const cacheKey = `daily_quote_${today}`;
+    // Tap to refresh week's logic manually or force refresh
+    const today = new Date();
+    const weekId = format(today, 'Y-ww');
+    const dayOfWeek = today.getDay();
+
     try {
       const q = await geminiService.solveDoubt(
-        "Give me a short, powerful motivational quote for a NEET aspirant. Exactly 2-4 lines only.",
+        "Generate exactly 7 distinct, powerful, 2-line motivational quotes for a NEET aspirant for each day of the week. Return a strict JSON array of 7 strings (e.g. ['Quote 1', 'Quote 2', ...]). Do not return any backticks or markdown formatting around the array.",
         undefined,
         undefined,
-        cacheKey
+        `weekly_quotes_${weekId}`
       );
-      if (q) setQuote(q);
-    } catch (e) {
-      setQuote(FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)]);
-    }
+      
+      if (q) {
+          // Parse JSON directly if the AI properly followed instructions. 
+          // Usually we'd want safeJsonParse, but let's do a simple regex or parse
+          const jsonMatch = q.match(/\[([\s\S]*?)\]/);
+          let quotesArray: string[] = [];
+          if (jsonMatch) {
+              try {
+                  quotesArray = JSON.parse(`[${jsonMatch[1]}]`);
+              } catch(e) {
+                  console.error("Syntax Error parsing quotes array");
+              }
+          }
+          if (quotesArray.length >= 7) {
+              localStorage.setItem('weekly_quotes_cache', JSON.stringify({ week: weekId, quotes: quotesArray }));
+              setQuote(quotesArray[dayOfWeek]);
+              return;
+          }
+      }
+    } catch (e) {}
+
+    // Fallback
+    setQuote(FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)]);
   };
 
   const hasCompletedTest = (subject: string, chapter: string) => {
@@ -340,9 +368,15 @@ const ChapterCard: React.FC<{ subject: string, chapter: string, completed: boole
 
   const handlePlay = async () => {
     setIsLoading(true);
-    const id = await geminiService.getYoutubeVideoId(`${chapter} full lecture revision NEET ${subject}`);
-    if (id) {
-        onPlay(id);
+    const result = await geminiService.getYoutubeVideoId(`${chapter} full lecture revision NEET ${subject}`);
+    if (result && result.id) {
+        if (result.blocked) {
+            // Channel blocks embed, open YouTube directly
+            window.open(`https://www.youtube.com/watch?v=${result.id}`, '_blank');
+        } else {
+            // Safe to open in custom in-app VideoModal
+            onPlay(result.id);
+        }
     } else {
         window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(chapter + " revision neet " + subject)}`, '_blank');
     }

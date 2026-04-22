@@ -26,10 +26,14 @@ export const LectureLibrary = () => {
         const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000));
 
         try {
-            const videoId = await Promise.race([videoIdPromise, timeoutPromise]);
+            const result = await Promise.race([videoIdPromise, timeoutPromise]) as { id: string, blocked?: boolean } | null;
             
-            if (videoId) {
-                setActiveVideo({ id: videoId, title: chapter });
+            if (result && result.id) {
+                if (result.blocked) {
+                    window.open(`https://www.youtube.com/watch?v=${result.id}`, '_blank');
+                } else {
+                    setActiveVideo({ id: result.id, title: chapter });
+                }
             } else {
                 // Fallback to searching if AI fails or times out (after 4 sec)
                 window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(chapter + " class 11 12 " + activeSubject + " full lecture")}`, '_blank');

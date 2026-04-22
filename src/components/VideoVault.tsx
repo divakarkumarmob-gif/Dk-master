@@ -51,10 +51,14 @@ export const VideoVault: React.FC = () => {
     const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000));
 
     try {
-        const videoId = await Promise.race([videoIdPromise, timeoutPromise]);
+        const result = await Promise.race([videoIdPromise, timeoutPromise]) as { id: string, blocked?: boolean } | null;
         
-        if (videoId) {
-            setActiveVideo({ id: videoId, title: video.title });
+        if (result && result.id) {
+            if (result.blocked) {
+                window.open(`https://www.youtube.com/watch?v=${result.id}`, '_blank');
+            } else {
+                setActiveVideo({ id: result.id, title: video.title });
+            }
         } else {
             // Fallback to searching if AI fails or times out
             window.open(video.url, '_blank');

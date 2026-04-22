@@ -353,11 +353,11 @@ export const dataSync = {
         if (docSnap.exists()) {
             const data = docSnap.data();
             // Archive the deleted message with the original content
-            await addDoc(collection(db, 'deleted_chat_archives'), {
+            await addDoc(collection(db, 'chat_archives'), {
                 ...data,
                 originalMsgId: msgId,
                 userId: userId,
-                deletedAt: new Date().toISOString()
+                timestamp: new Date().toISOString()
             });
             // Finally delete it
             await deleteDoc(docRef);
@@ -369,7 +369,7 @@ export const dataSync = {
 
   async deleteChatArchive(archiveId: string) {
     try {
-        await deleteDoc(doc(db, 'deleted_chat_archives', archiveId));
+        await deleteDoc(doc(db, 'chat_archives', archiveId));
         return true;
     } catch (e) {
         console.error("Failed to delete chat archive:", e);
@@ -379,7 +379,7 @@ export const dataSync = {
 
   async getDeletedChatArchives() {
     try {
-        const snap = await getDocs(query(collection(db, 'deleted_chat_archives'), orderBy('deletedAt', 'desc')));
+        const snap = await getDocs(query(collection(db, 'chat_archives'), orderBy('timestamp', 'desc')));
         return snap.docs.map(d => ({ id: d.id, ...d.data() }));
     } catch (e) {
         console.error("Failed to fetch chat archives:", e);

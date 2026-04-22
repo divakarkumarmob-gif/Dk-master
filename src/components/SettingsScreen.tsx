@@ -134,6 +134,24 @@ const SettingsScreen: React.FC = () => {
            <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
+            onClick={() => setActiveTab('study_materials')}
+            className="w-full relative overflow-hidden p-5 rounded-[28px] flex items-center justify-between group shadow-sm bg-gradient-to-br from-emerald-500 to-emerald-700 text-white"
+          >
+            <div className="flex items-center gap-4 relative z-10 w-full">
+              <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white border border-white/30">
+                <FileText size={18} />
+              </div>
+              <div className="text-left">
+                <span className="font-bold text-sm block">NCERT & Modules</span>
+                <span className="text-[10px] opacity-70">Access uploaded library PDFs</span>
+              </div>
+            </div>
+            <ChevronRight size={18} className="text-white relative z-10" />
+          </motion.button>
+          
+           <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => setShowMemory(true)}
             className="w-full relative overflow-hidden p-5 rounded-[28px] flex items-center justify-between group shadow-sm bg-gradient-to-r from-blue-900 to-blue-600 text-white"
           >

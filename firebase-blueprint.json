@@ -61,6 +61,33 @@
         "winner": { "type": "string" }
       },
       "required": ["status", "createdAt", "questions", "players"]
+    },
+    "ChatArchive": {
+      "title": "ChatArchive",
+      "description": "Deleted chat messages for admin review",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "userId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "reason": { "type": "string" }
+      },
+      "required": ["userId", "timestamp"]
+    },
+    "StudyMaterial": {
+      "title": "StudyMaterial",
+      "description": "PDF notes uploaded by admin",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "subject": { "type": "string" },
+        "type": { "type": "string" },
+        "url": { "type": "string" },
+        "fileName": { "type": "string" },
+        "size": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "subject", "type", "url"]
     }
   },
   "firestore": {
@@ -83,6 +110,14 @@
     "/duels/{duelId}": {
       "schema": "Duel",
       "description": "Live head-to-head quiz sessions."
+    },
+    "/chat_archives/{archiveId}": {
+      "schema": "ChatArchive",
+      "description": "Backup of deleted chat messages for moderation."
+    },
+    "/study_materials/{materialId}": {
+      "schema": "StudyMaterial",
+      "description": "Central repository for PDFs/Notes."
     }
   }
 }

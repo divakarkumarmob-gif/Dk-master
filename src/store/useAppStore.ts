@@ -65,14 +65,14 @@ interface AppState {
   lastLoginDate: string | null;
   lastAnalyzedPhotoContext: { name: string; summary: string; timestamp: string } | null;
   lastUploadedPhotoName: string | null;
-  activeTab: 'home' | 'analysis' | 'notes' | 'settings' | 'chat' | 'admin';
+  activeTab: 'home' | 'analysis' | 'notes' | 'settings' | 'chat' | 'admin' | 'study_materials';
   preloadedAIPhoto: Note | null;
   
   // Actions
   setUser: (user: AuthUser | null) => void;
   updateProfileDisplayName: (newName: string) => void;
   setFullState: (data: Partial<AppState>) => void;
-  setActiveTab: (tab: 'home' | 'analysis' | 'notes' | 'settings' | 'chat' | 'admin') => void;
+  setActiveTab: (tab: 'home' | 'analysis' | 'notes' | 'settings' | 'chat' | 'admin' | 'study_materials') => void;
   setPreloadedAIPhoto: (note: Note | null) => void;
   logout: () => void;
   setTheme: (theme: 'light' | 'dark') => void;

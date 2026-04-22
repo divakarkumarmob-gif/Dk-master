@@ -2,14 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../services/firebase';
 import { collection, onSnapshot, query, deleteDoc, doc, getDocs } from 'firebase/firestore';
 import { cn } from '../lib/utils';
-import { Trash2, AlertCircle, Shield, Bell, Pencil, Ban, Trash2 as TrashIcon } from 'lucide-react';
+import { Trash2, AlertCircle, Shield, Bell, Pencil, Ban, Trash2 as TrashIcon, BookOpen } from 'lucide-react';
 import { dataSync } from '../services/dataSync';
+import { AdminStudyMaterial } from './AdminStudyMaterial';
 
 export default function AdminDashboard() {
   const [items, setItems] = useState<any[]>([]);
   const [nameAlerts, setNameAlerts] = useState<any[]>([]);
   const [archives, setArchives] = useState<any[]>([]);
-  const [view, setView] = useState<'alerted' | 'blocked' | 'names' | 'archives'>('alerted');
+  const [view, setView] = useState<'alerted' | 'blocked' | 'names' | 'archives' | 'study_material'>('alerted');
 
   useEffect(() => {
     loadData();
@@ -57,7 +58,8 @@ export default function AdminDashboard() {
     { id: 'alerted', label: 'User Alerts', icon: Bell },
     { id: 'names', label: 'Name Changes', icon: Pencil },
     { id: 'blocked', label: 'Blocked', icon: Ban },
-    { id: 'archives', label: 'Deleted Messages', icon: TrashIcon },
+    { id: 'study_material', label: 'Upload Notes', icon: BookOpen },
+    { id: 'archives', label: 'Deleted Messages', icon: TrashIcon }
   ] as const;
 
   return (
@@ -151,6 +153,10 @@ export default function AdminDashboard() {
                   <button onClick={() => blockUser(user.id, user.moderation)} className="p-2 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 text-xs font-bold">Unblock</button>
                 </div>
               ))
+          )}
+
+          {view === 'study_material' && (
+            <AdminStudyMaterial />
           )}
 
           {view === 'archives' && (

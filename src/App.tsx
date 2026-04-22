@@ -23,6 +23,7 @@ import SettingsScreen from './components/SettingsScreen';
 import DailyTestScreen from './components/DailyTestScreen';
 import StudyTalks from './components/StudyTalks';
 import AdminDashboard from './components/AdminDashboard';
+import StudyMaterialsScreen from './components/StudyMaterialsScreen';
 import SplashScreen from './components/SplashScreen';
 import InstallPwa from './components/InstallPwa';
 import { OfflineManager } from './components/OfflineManager';
@@ -219,6 +220,9 @@ export default function App() {
             )}
             {activeTab === 'settings' && (
               <SettingsScreen key="settings" />
+            )}
+            {activeTab === 'study_materials' && (
+              <StudyMaterialsScreen key="study_materials" />
             )}
           </AnimatePresence>
         </main>

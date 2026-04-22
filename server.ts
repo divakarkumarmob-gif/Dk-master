@@ -9,6 +9,7 @@ import admin from 'firebase-admin';
 import cors from 'cors';
 import { Redis } from '@upstash/redis';
 import stringSimilarity from 'string-similarity';
+import ytSearch from 'yt-search';
 
 // Initialize Firebase Admin
 if (!admin.apps.length) {
@@ -58,23 +59,37 @@ app.use(express.json());
 
 // 1. Firebase Auth Token Verification Middleware
 interface AuthRequest extends Request {
-  user?: admin.auth.DecodedIdToken;
+  user?: { uid: string; email?: string; admin?: boolean };
 }
 
 const authMiddleware = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
+  
+  // Allow guest access if no token or undefined token is provided
+  if (!authHeader || !authHeader.startsWith('Bearer ') || authHeader === 'Bearer undefined' || authHeader === 'Bearer null') {
+    // Assign a guest UID based on IP to implement rate limiting for guests
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+    req.user = { uid: `guest_${ip}` };
+    return next();
   }
 
   const idToken = authHeader.split('Bearer ')[1];
+  
+  // If Firebase Admin is not fully initialized but they sent a token somehow (unlikely to be valid), just make them a guest.
+  if (!admin.apps.length) {
+    req.user = { uid: 'guest_no_firebase' };
+    return next();
+  }
+
   try {
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     req.user = decodedToken;
     next();
   } catch (error) {
     console.error('[AUTH] Token verification failed:', error);
-    res.status(401).json({ error: 'Unauthorized: Token verification failed' });
+    // Even if verification fails, fallback to guest so the AI continues to work
+    req.user = { uid: 'guest_invalid_token' };
+    next();
   }
 };
 
@@ -141,10 +156,17 @@ if (!aiKey) {
 }
 const ai = new GoogleGenAI({ apiKey: aiKey || '' });
 
-// API Endpoints - Protected by authMiddleware
-app.post('/api/auth/send-otp', authMiddleware, async (req: AuthRequest, res) => {
+// Auth endpoints - Open (no authMiddleware required since they are used for pre-register)
+app.post('/api/auth/send-otp', async (req: Request, res: Response) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email required' });
+
+  // Basic rate limited locally for OTP (if redis is active)
+  const otpCooldownKey = `otp_cooldown:${email}`;
+  const isCooldown = await redis.set(otpCooldownKey, "1", { ex: 60, nx: true }); // 60 sec wait between sends
+  if (!isCooldown) {
+     return res.status(429).json({ error: 'Please wait 60 seconds before requesting another OTP.' });
+  }
 
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   otps.set(email, { code, expiry: Date.now() + 10 * 60 * 1000 });
@@ -172,9 +194,54 @@ app.post('/api/auth/send-otp', authMiddleware, async (req: AuthRequest, res) => 
       html: `<div style="text-align: center;"><h2>${code}</h2></div>`
     });
     res.json({ success: true, message: 'OTP sent to your Gmail.' });
-  } catch (error) {
-    res.status(500).json({ error: 'Mail server error.' });
+  } catch (error: any) {
+    console.error('Mail server error details:', error);
+    // Allow trying again without waiting 60s if it completely failed.
+    redis.del(otpCooldownKey);
+    res.status(500).json({ error: 'Mail server error: ' + (error.message || 'Unknown error. Are you using an App Password?') });
   }
+});
+
+app.post('/api/auth/verify-otp', async (req: Request, res: Response) => {
+  const { email, code } = req.body;
+  const stored = otps.get(email);
+  if (stored && stored.code === code && stored.expiry > Date.now()) {
+    return res.json({ success: true });
+  }
+  res.status(400).json({ error: 'Invalid or expired OTP.' });
+});
+
+// AI and YouTube endpoints - Protected by Auth
+app.post('/api/youtube-search', authMiddleware, async (req: AuthRequest, res) => {
+  const { topic } = req.body;
+  if (!topic) return res.status(400).json({ error: 'Topic required' });
+
+  // Priority 1: Real YouTube Search (Bypassing AI Hallucinations)
+  // AI models like OpenAI and Gemini hallucinate 11-character strings without direct LIVE web browsing APIs.
+  // Using yt-search fetches the absolute top-ranked video dynamically directly from YouTube within 1-2 seconds.
+  try {
+      // Race condition to enforce max 4 second limit
+      const searchPromise = ytSearch({ query: `${topic} NEET full lecture`, category: 'education' });
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000));
+      
+      const r = await Promise.race([searchPromise, timeoutPromise]) as ytSearch.SearchResult;
+      
+      if (r && r.videos && r.videos.length > 0) {
+          const bestVideo = r.videos[0]; // ALWAYS pick the absolute top video
+          
+          // Check if this channel is known to block iframes
+          const blockedAuthors = ['pw', 'physics wallah', 'lakshya', 'unacademy', 'vedantu', 'aakash', 'byju'];
+          const authorName = (bestVideo.author?.name || '').toLowerCase();
+          const isBlocked = blockedAuthors.some(blocked => authorName.includes(blocked));
+          
+          return res.json({ id: bestVideo.videoId, source: 'yt-search', blocked: isBlocked, title: bestVideo.title });
+      }
+  } catch (e) {
+      console.error('[AI] yt-search failed or timed out:', e);
+  }
+
+  // Priority 2: Fail fast to let client redirect to UI search
+  return res.status(404).json({ error: 'All engines failed to find a valid real ID.' });
 });
 
 app.post('/api/auth/verify-otp', authMiddleware, async (req: AuthRequest, res) => {
@@ -258,43 +325,73 @@ app.post('/api/ask', authMiddleware, async (req: AuthRequest, res) => {
   const allowed = await checkCooldownAndRateLimit(uid, res as any);
   if (!allowed) return; // response already sent
 
+  const systemInstruction = "You are NEET Prep AI, the ultimate expert educator for NEET aspirants. You have absolute mastery over the NCERT syllabus for Physics, Chemistry, and Biology. \n\n" +
+  "YOUR STYLE:\n" +
+  "- Provide high-level, accurate, and technically sound answers.\n" +
+  "- Keep answers SHORT (3-5 lines max). Be extremely concise to minimize costs.\n" + 
+  "- Use clear step-by-step reasoning for numerical and logical problems.\n" +
+  "- Incorporate NCERT-specific keywords and concepts.\n" +
+  "- Be authoritative but deeply encouraging.\n" +
+  "- Format answers with clean markdown (bolding, lists) for readability.";
+
+  let answer = "";
   try {
     const result = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: question,
-        config: {
-          systemInstruction: "You are NEET Prep AI, the ultimate expert educator for NEET aspirants. You have absolute mastery over the NCERT syllabus for Physics, Chemistry, and Biology. \n\n" +
-                             "YOUR STYLE:\n" +
-                             "- Provide high-level, accurate, and technically sound answers.\n" +
-                             "- Keep answers SHORT (3-5 lines max). Be extremely concise to minimize costs.\n" + 
-                             "- Use clear step-by-step reasoning for numerical and logical problems.\n" +
-                             "- Incorporate NCERT-specific keywords and concepts.\n" +
-                             "- Be authoritative but deeply encouraging.\n" +
-                             "- Format answers with clean markdown (bolding, lists) for readability."
-        }
+        config: { systemInstruction }
     });
 
-    if (!result) {
-        throw new Error("AI engine failed to produce response object");
-    }
+    if (!result) throw new Error("AI engine failed to produce response object");
 
-    let answer = "";
     try {
         answer = result.text;
     } catch (e) {
-        console.warn("result.text failed (likely safety filters):", e);
         if (result.candidates && result.candidates.length > 0) {
             answer = result.candidates[0].content?.parts?.[0]?.text || "Response blocked by safety filters.";
         } else {
             answer = "I'm sorry, I couldn't generate a safe response. Please try rephrasing your doubt.";
         }
     }
-
-    if (!answer) {
-        return res.status(200).json({ answer: "Neural Link timed out. Practice NCERT while we re-sync." });
+  } catch (error) {
+    console.error('[AI] Gemini failed, attempting OpenAI fallback:', error);
+    if (!process.env.OPENAI_API_KEY) {
+        return res.status(500).json({ error: 'AI engines failed and no OpenAI fallback configured.' });
     }
+    try {
+        const oaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+            },
+            body: JSON.stringify({
+                model: "gpt-4o-mini",
+                messages: [
+                    { role: "system", content: systemInstruction },
+                    { role: "user", content: question }
+                ],
+                max_tokens: 300
+            })
+        });
+        const oaiData = await oaiRes.json();
+        if (oaiData.choices && oaiData.choices.length > 0) {
+            answer = oaiData.choices[0].message.content;
+            console.log('[AI] Successfully used OpenAI fallback.');
+        } else {
+            throw new Error('OpenAI returned invalid format.');
+        }
+    } catch (oaiError) {
+        console.error('[AI] OpenAI fallback failed:', oaiError);
+        return res.status(500).json({ error: 'All AI engines failed. Neural Link offline.' });
+    }
+  }
 
-    // Store in Firestore memory
+  if (!answer) {
+      return res.status(200).json({ answer: "Neural Link timed out. Practice NCERT while we re-sync." });
+  }
+
+  // Store in Firestore memory
     db.collection('ai_memory').add({
       originalQuestion: question,
       normalizedQuestion: normalizedQ,
@@ -308,10 +405,6 @@ app.post('/api/ask', authMiddleware, async (req: AuthRequest, res) => {
     redis.set(redisKey, answer, { ex: 86400 }).catch(console.error);
 
     res.json({ answer, cached: false });
-  } catch (error) {
-    console.error('AI error', error);
-    res.status(500).json({ error: 'AI Error' });
-  }
 });
 
 // Admin Only Route

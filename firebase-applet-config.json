@@ -1,10 +1,10 @@
 {
   "info": "Values moved to environment variables for security. See .env.example",
-  "projectId": "REDACTED",
+  "projectId": "gen-lang-client-0339986798",
   "appId": "REDACTED",
   "apiKey": "REDACTED",
   "authDomain": "REDACTED",
-  "firestoreDatabaseId": "REDACTED",
+  "firestoreDatabaseId": "ai-studio-35440246-9200-461f-8a19-c1ad0c54c053",
   "storageBucket": "REDACTED",
   "messagingSenderId": "REDACTED",
   "measurementId": ""
