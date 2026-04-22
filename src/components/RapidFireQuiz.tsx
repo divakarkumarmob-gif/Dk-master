@@ -5,7 +5,6 @@ import {
   Atom, 
   FlaskConical, 
   Sparkles, 
-  Loader2, 
   X, 
   Terminal,
   Zap,
@@ -17,6 +16,7 @@ import { useAppStore } from '../store/useAppStore';
 import { geminiService } from '../services/gemini';
 import { cn } from '../lib/utils';
 import Confetti from 'react-confetti';
+import { Spinner } from './Spinner';
 
 interface QuizQuestion {
   question: string;
@@ -26,6 +26,7 @@ interface QuizQuestion {
 }
 
 export const RapidFireQuiz: React.FC = () => {
+    // ... no changes to state ...
   const { theme } = useAppStore();
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currIdx, setCurrIdx] = useState(0);
@@ -51,14 +52,35 @@ export const RapidFireQuiz: React.FC = () => {
       Questions should be tricky. Plain text only.`;
       
       const response = await geminiService.solveDoubt(prompt);
-      if (response) {
+      if (response && typeof response === 'string') {
         const jsonMatch = response.match(/\[[\s\S]*\]/);
         if (jsonMatch) {
             setQuestions(JSON.parse(jsonMatch[0]));
+        } else {
+            throw new Error("No JSON in AI response");
         }
+      } else {
+          // AI Fallback if result isn't what we expect
+          const { FALLBACK_QUESTIONS } = await import('../constants/fallbackData');
+          const mapped = FALLBACK_QUESTIONS.map(q => ({
+              question: q.text,
+              options: q.options,
+              answer: q.correctAnswer,
+              explanation: q.explanation
+          }));
+          setQuestions(mapped);
       }
     } catch (e) {
       console.error(e);
+      // Hard fallback
+      const { FALLBACK_QUESTIONS } = await import('../constants/fallbackData');
+      const mapped = FALLBACK_QUESTIONS.map(q => ({
+          question: q.text,
+          options: q.options,
+          answer: q.correctAnswer,
+          explanation: q.explanation
+      }));
+      setQuestions(mapped);
     }
     setLoading(false);
   };
@@ -123,9 +145,8 @@ export const RapidFireQuiz: React.FC = () => {
             className="overflow-hidden"
           >
             {loading ? (
-                <div className="p-10 flex flex-col items-center gap-4 bg-white dark:bg-zinc-900 rounded-[32px] border border-line dark:border-white/5">
-                    <Loader2 size={32} className="animate-spin text-emerald-500" />
-                    <p className="text-[10px] font-black uppercase tracking-widest text-text-muted">Encrypting Test Vectors...</p>
+                <div className="p-16 flex flex-col items-center justify-center bg-white dark:bg-zinc-900 rounded-[32px] border border-line dark:border-white/5 shadow-inner">
+                    <Spinner size={40} label="Decrypting Test Vectors..." />
                 </div>
             ) : quizFinished ? (
                 <div className="p-8 text-center bg-white dark:bg-zinc-900 rounded-[32px] border border-line dark:border-white/5 space-y-6">

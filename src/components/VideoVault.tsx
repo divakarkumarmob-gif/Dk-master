@@ -9,10 +9,13 @@ import {
   MonitorPlay,
   X,
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  Loader2
 } from 'lucide-react';
 import { getDailyChapters } from '../store/useAppStore';
 import { cn } from '../lib/utils';
+import { geminiService } from '../services/gemini';
+import { VideoModal } from './VideoModal';
 
 interface VideoSource {
   id: string;
@@ -25,7 +28,8 @@ interface VideoSource {
 
 export const VideoVault: React.FC = () => {
   const daily = getDailyChapters();
-  const [selectedVideo, setSelectedVideo] = useState<VideoSource | null>(null);
+  const [activeVideo, setActiveVideo] = useState<{ id: string, title: string } | null>(null);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
 
   // Curated logic: In a real app, this would be a YouTube API search based on daily chapters.
   // For now, we generate contextual search links for the daily chapters.
@@ -40,9 +44,20 @@ export const VideoVault: React.FC = () => {
     url: `https://www.youtube.com/results?search_query=${encodeURIComponent(daily.chapters[subject as keyof typeof daily.chapters] + " revision neet " + subject)}`
   }));
 
+  const handlePlayVideo = async (video: VideoSource) => {
+    setLoadingId(video.id);
+    const videoId = await geminiService.getYoutubeVideoId(video.title);
+    if (videoId) {
+        setActiveVideo({ id: videoId, title: video.title });
+    } else {
+        window.open(video.url, '_blank');
+    }
+    setLoadingId(null);
+  };
+
   return (
     <div className="space-y-4">
-      {/* Header */}
+      {/* ... header ... */}
       <div className="flex items-center justify-between px-2">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-red-500/20 text-red-500 rounded-lg flex items-center justify-center border border-red-500/30">
@@ -70,19 +85,26 @@ export const VideoVault: React.FC = () => {
                 <div 
                     key={video.id}
                     className="group relative bg-white/5 rounded-2xl overflow-hidden border border-white/5 hover:border-red-500/30 transition-all cursor-pointer"
-                    onClick={() => window.open(video.url, '_blank')}
+                    onClick={() => handlePlayVideo(video)}
                 >
                     <div className="aspect-video relative overflow-hidden">
                         <img 
                             src={video.thumbnail} 
                             alt={video.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-60"
+                            className={cn(
+                                "w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-60",
+                                loadingId === video.id && "animate-pulse"
+                            )}
                             referrerPolicy="no-referrer"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                             <div className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center shadow-2xl shadow-red-600/40">
-                                <Play size={24} className="text-white ml-1 fill-current" />
+                                {loadingId === video.id ? (
+                                    <Loader2 size={24} className="text-white animate-spin" />
+                                ) : (
+                                    <Play size={24} className="text-white ml-1 fill-current" />
+                                )}
                             </div>
                         </div>
                         <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end">
@@ -102,7 +124,7 @@ export const VideoVault: React.FC = () => {
                             </p>
                         </div>
                         <div className="p-2 bg-white/5 rounded-xl text-zinc-400 group-hover:text-white transition-colors">
-                            <ExternalLink size={14} />
+                            <Play size={14} />
                         </div>
                     </div>
                 </div>
@@ -118,6 +140,13 @@ export const VideoVault: React.FC = () => {
         </button>
       </div>
 
+      <VideoModal 
+        videoId={activeVideo?.id || null} 
+        title={activeVideo?.title} 
+        onClose={() => setActiveVideo(null)} 
+      />
+
+      {/* ... footer ... */}
       <div className="px-2 flex items-center gap-2 opacity-40">
           <Youtube size={10} className="text-red-500" />
           <p className="text-[8px] font-black uppercase tracking-widest text-white italic">

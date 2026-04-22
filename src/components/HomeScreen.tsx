@@ -17,7 +17,8 @@ import {
   Terminal,
   BookOpen,
   Target,
-  ChevronDown
+  ChevronDown,
+  Loader2
 } from 'lucide-react';
 import { useAppStore, getDailyChapters, Question } from '../store/useAppStore';
 import { Leaderboard } from './Leaderboard';
@@ -37,6 +38,7 @@ import { StudyPulse } from './StudyPulse';
 import { SavedCheatSheets } from './SavedCheatSheets';
 import { QuestionScanner } from './QuestionScanner';
 import { CompatibilityHub } from './CompatibilityHub';
+import { VideoModal } from './VideoModal';
 import { cn } from '../lib/utils';
 import { differenceInDays, format } from 'date-fns';
 import { geminiService } from '../services/gemini';
@@ -63,6 +65,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
   const [openTool, setOpenTool] = useState<string | null>(null);
   const [isNavVisible, setIsNavVisible] = useState(true);
   const [showCustomPractice, setShowCustomPractice] = useState(false);
+  const [activeVideo, setActiveVideo] = useState<{ id: string, title: string } | null>(null);
   const { scrollY } = useScroll();
 
   useMotionValueEvent(scrollY, "change", (current) => {
@@ -199,6 +202,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
                           chapter={chapter as string}
                           completed={hasCompletedTest(subject, chapter as string)}
                           onClick={() => onStartTest({ id: `minor-${subject}-${Date.now()}`, type: 'Minor', subject, chapter: chapter as string })}
+                          onPlay={(id) => setActiveVideo({ id, title: chapter as string })}
                         />
                        ))}
                     </div>
@@ -312,20 +316,35 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
         onClose={() => setShowCustomPractice(false)} 
         onStartTest={onStartTest} 
       />
+      <VideoModal 
+        videoId={activeVideo?.id || null} 
+        title={activeVideo?.title} 
+        onClose={() => setActiveVideo(null)} 
+      />
     </div>
   );
 }
 
 export default HomeScreen;
 
-const ChapterCard: React.FC<{ subject: string, chapter: string, completed: boolean, onClick: () => void }> = ({ subject, chapter, completed, onClick }) => {
+const ChapterCard: React.FC<{ subject: string, chapter: string, completed: boolean, onClick: () => void, onPlay: (id: string) => void }> = ({ subject, chapter, completed, onClick, onPlay }) => {
+  const [isLoading, setIsLoading] = useState(false);
   const borderColors: Record<string, string> = {
     Physics: 'border-l-olive-primary dark:border-l-blue-400',
     Chemistry: 'border-l-orange-accent dark:border-l-orange-500',
     Biology: 'border-l-[#4CAF50] dark:border-l-green-400'
   };
 
-  const videoUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(chapter + " revision neet " + subject)}`;
+  const handlePlay = async () => {
+    setIsLoading(true);
+    const id = await geminiService.getYoutubeVideoId(`${chapter} full lecture revision NEET ${subject}`);
+    if (id) {
+        onPlay(id);
+    } else {
+        window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(chapter + " revision neet " + subject)}`, '_blank');
+    }
+    setIsLoading(false);
+  };
 
   return (
     <motion.div
@@ -340,15 +359,14 @@ const ChapterCard: React.FC<{ subject: string, chapter: string, completed: boole
         <p className="text-[14px] leading-tight font-bold text-text-main dark:text-white line-clamp-2">{chapter}</p>
       </div>
       <div className="flex items-center gap-2">
-        <a 
-          href={videoUrl} 
-          target="_blank" 
-          rel="noopener noreferrer"
+        <button 
+          onClick={handlePlay}
+          disabled={isLoading}
           className="w-9 h-9 rounded-full bg-red-50 dark:bg-red-500/10 text-red-500 hover:bg-red-100 dark:hover:bg-red-500/20 flex items-center justify-center transition-colors shrink-0 shadow-sm border border-red-100 dark:border-red-500/20"
           title="Watch Lecture"
         >
-          <Play size={16} className="ml-0.5" />
-        </a>
+          {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} className="ml-0.5" />}
+        </button>
         <motion.button 
           whileTap={{ scale: 0.95 }}
           onClick={onClick}

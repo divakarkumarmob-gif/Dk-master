@@ -25,6 +25,7 @@ import StudyTalks from './components/StudyTalks';
 import AdminDashboard from './components/AdminDashboard';
 import SplashScreen from './components/SplashScreen';
 import InstallPwa from './components/InstallPwa';
+import { OfflineManager } from './components/OfflineManager';
 
 export default function App() {
   const { user, setUser, setFullState, theme, updateStreak, activeTab, setActiveTab, cleanupOldChatHistory } = useAppStore();
@@ -177,6 +178,7 @@ export default function App() {
       </AnimatePresence>
       
       <InstallPwa />
+      <OfflineManager />
 
       <div className={cn(
           "flex-1 flex flex-col relative bg-inherit",

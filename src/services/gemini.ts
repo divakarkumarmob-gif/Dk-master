@@ -8,13 +8,17 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 const handleGeminiCall = async (fn: () => Promise<any>, fallback?: any, cacheKey?: string) => {
   // Check cache first
   if (cacheKey) {
-    const cached = localStorage.getItem(`gemini_cache_${cacheKey}`);
-    if (cached) {
-      const { data, timestamp } = JSON.parse(cached);
-      // Cache valid for 24 hours
-      if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
-        return data;
+    try {
+      const cached = localStorage.getItem(`gemini_cache_${cacheKey}`);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        // Cache valid for 24 hours
+        if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
+          return data;
+        }
       }
+    } catch (e) {
+      console.warn("Cache parse failed:", e);
     }
   }
 
@@ -28,6 +32,17 @@ const handleGeminiCall = async (fn: () => Promise<any>, fallback?: any, cacheKey
     console.error("Gemini API Error:", error);
     return fallback || null;
   }
+};
+
+const safeJsonParse = (text: string, fallback: any = []) => {
+    try {
+        // Remove markdown code blocks if present
+        const cleanJson = text.replace(/```json|```/g, '').trim();
+        return JSON.parse(cleanJson);
+    } catch (e) {
+        console.error("JSON Parse Error:", e, "Raw text:", text);
+        return fallback;
+    }
 };
 
 export const geminiService = {
@@ -64,14 +79,14 @@ export const geminiService = {
       }`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash-latest",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
         }
       });
 
-      return JSON.parse(response.text || '[]');
+      return safeJsonParse(response.text || '[]', FALLBACK_QUESTIONS);
     }, FALLBACK_QUESTIONS, cacheKey);
   },
 
@@ -90,14 +105,14 @@ export const geminiService = {
       }`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash-latest",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
         }
       });
 
-      return JSON.parse(response.text || '[]');
+      return safeJsonParse(response.text || '[]', FALLBACK_QUESTIONS);
     }, FALLBACK_QUESTIONS);
   },
 
@@ -147,8 +162,20 @@ export const geminiService = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ question: doubt })
         });
-        const data = await result.json();
-        return data.answer || "I'm having trouble connecting right now.";
+        
+        if (!result.ok) {
+            const errorText = await result.text();
+            throw new Error(`Server Error (${result.status}): ${errorText}`);
+        }
+        
+        const contentType = result.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+            const data = await result.json();
+            return data.answer || "I'm having trouble connecting right now.";
+        } else {
+            const text = await result.text();
+            return text || "Connection unstable. Please try again.";
+        }
     }, "I am sorry, but my neural core is currently cooling down. Please practice NCERT chapters meanwhile!");
 
     // 3. Save to memory (Simplified for now)
@@ -173,7 +200,7 @@ export const geminiService = {
   async analyzeImage(imageData: string, customPrompt?: string) {
     return handleGeminiCall(async () => {
       const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash-latest",
+        model: "gemini-3-flash-preview",
         contents: {
           parts: [
             { inlineData: { data: imageData.split(',')[1], mimeType: "image/png" } },
@@ -191,7 +218,7 @@ export const geminiService = {
   async extractQuestionsFromImage(imageData: string) {
     return handleGeminiCall(async () => {
       const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash-latest",
+        model: "gemini-3-flash-preview",
         contents: {
           parts: [
             { inlineData: { data: imageData.split(',')[1], mimeType: "image/png" } },
@@ -215,7 +242,7 @@ export const geminiService = {
           responseMimeType: "application/json",
         }
       });
-      return JSON.parse(response.text || '[]');
+      return safeJsonParse(response.text || '[]', []);
     }, []);
   },
 
@@ -223,7 +250,7 @@ export const geminiService = {
     return handleGeminiCall(async () => {
       const prompt = `Summarize: ${text}. Plain text only.`;
       const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash-latest",
+        model: "gemini-3-flash-preview",
         contents: prompt,
       });
       return response.text;
@@ -234,10 +261,42 @@ export const geminiService = {
     return handleGeminiCall(async () => {
       const prompt = `Study plan based on: ${performanceData}. Plain text.`;
       const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash-latest",
+        model: "gemini-3-flash-preview",
         contents: prompt,
       });
       return response.text;
     }, "Focus on NCERT Biology diagrams and Physics formulas for the next 7 days. Keep practicing!");
+  },
+
+  async getYoutubeVideoId(topic: string, subject?: string) {
+    // 1. Try Local Hardcoded Fallbacks First (Zero latency, No AI dependency)
+    const { getFallbackVideoId } = await import('../data/videoFallbacks');
+    const localId = getFallbackVideoId(topic);
+    if (localId) return localId;
+
+    return handleGeminiCall(async () => {
+      // Use Google Search to find working/embeddable YouTube IDs
+      const prompt = `Find the MOST POPULAR and WORKING YouTube video ID for a full chapter NEET lecture on the topic: "${topic}" ${subject ? `(${subject})` : ''}. 
+      Prefer videos from top channels like "Competition Wallah", "Unacademy NEET", or "Physics Wallah".
+      The video MUST allow embedding. 
+      Return ONLY the 11-character YouTube video ID. Do NOT include any other text or explanation. 
+      Example: dQw4w9WgXcQ`;
+      
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt,
+        tools: [{ googleSearch: {} }]
+      });
+      
+      const id = response.text?.trim();
+      // Extract first 11-char sequence that looks like a YT ID if there's noise
+      const match = id?.match(/[a-zA-Z0-9_-]{11}/);
+      const cleanId = match ? match[0] : null;
+
+      if (cleanId && /^[a-zA-Z0-9_-]{11}$/.test(cleanId)) {
+          return cleanId;
+      }
+      return null;
+    });
   }
 };

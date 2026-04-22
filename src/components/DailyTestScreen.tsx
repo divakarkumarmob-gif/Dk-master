@@ -14,6 +14,7 @@ import {
 import { useAppStore, Question, TestResult } from '../store/useAppStore';
 import { cn, formatTime } from '../lib/utils';
 import { geminiService } from '../services/gemini';
+import { customBank } from '../data/customBank';
 import confetti from 'canvas-confetti';
 
 interface TestProps {
@@ -58,6 +59,23 @@ export default function DailyTestScreen({ testConfig, onBack }: TestProps) {
             initialAnswers = progress.userAnswers;
             initialIndex = progress.currentIndex;
             initialTime = progress.timeLeft;
+        } else if (!navigator.onLine) {
+          // If offline, use custom bank
+          const subject = testConfig.subject || 'Biology';
+          const bank = customBank[subject as keyof typeof customBank] || customBank.Biology;
+          generatedQuestions = [...bank]
+            .sort(() => Math.random() - 0.5)
+            .slice(0, testConfig.type === 'Minor' ? 30 : bank.length)
+            .map((q, i) => ({
+              text: q.question,
+              options: q.options,
+              correctAnswer: q.correctAnswer,
+              explanation: q.explanation,
+              id: `offline-${subject}-${i}-${Date.now()}`,
+              subject: subject as any,
+              chapter: testConfig.chapter || 'Offline Review'
+            }));
+          initialTime = generatedQuestions.length * 2 * 60;
         } else if (testConfig.questions && testConfig.questions.length > 0) {
           generatedQuestions = testConfig.questions;
           initialTime = generatedQuestions.length * 2 * 60; // 2 mins per question

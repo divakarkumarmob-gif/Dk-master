@@ -252,7 +252,7 @@ app.post('/api/ask', authMiddleware, async (req: AuthRequest, res) => {
 
   try {
     const result = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
+        model: 'gemini-3-flash-preview',
         contents: question,
         config: {
           systemInstruction: "You are NEET Prep AI, the ultimate expert educator for NEET aspirants. You have absolute mastery over the NCERT syllabus for Physics, Chemistry, and Biology. \n\n" +
@@ -265,7 +265,12 @@ app.post('/api/ask', authMiddleware, async (req: AuthRequest, res) => {
                              "- Format answers with clean markdown (bolding, lists) for readability."
         }
     });
-    const answer = result.text || 'No answer generated';
+
+    if (!result || !result.text) {
+        throw new Error("AI returned empty response");
+    }
+
+    const answer = result.text;
 
     // Store in Firestore memory
     db.collection('ai_memory').add({
