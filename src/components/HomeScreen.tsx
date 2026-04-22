@@ -26,6 +26,7 @@ import { NCERTAudioLibrary } from './NCERTAudioLibrary';
 import { RapidFireQuiz } from './RapidFireQuiz';
 import { BattleArena } from './BattleArena';
 import { ConceptBot } from './ConceptBot';
+import { LectureLibrary } from './LectureLibrary';
 import { ErrorFixTest } from './ErrorFixTest';
 import { VisualDecoder } from './VisualDecoder';
 import { PlannerBot } from './PlannerBot';
@@ -227,7 +228,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
                     <h2 className="text-xl font-black text-text-main dark:text-white uppercase tracking-tight">Active Learning Tools</h2>
                 </div>
                 
-                <div className="space-y-8 relative z-10">
+                <div className="space-y-2 relative z-10">
+                  <CollapsibleTool 
+                    title="Lecture Library"
+                    isOpen={openTool === 'lectures'}
+                    onToggle={() => setOpenTool(openTool === 'lectures' ? null : 'lectures')}
+                  >
+                    <LectureLibrary />
+                  </CollapsibleTool>
+
                   <CollapsibleTool 
                     title="Neural & AI Tools"
                     isOpen={openTool === 'ai'}
