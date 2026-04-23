@@ -27,15 +27,7 @@ export default defineConfig(({mode}) => {
       assetsDir: 'assets',
       emptyOutDir: true,
       sourcemap: false,
-      minify: 'esbuild', // Faster and more memory efficient than terser
-      rollupOptions: {
-        output: {
-          manualChunks: {
-            'vendor': ['react', 'react-dom', 'motion', 'lucide-react', 'recharts'],
-            'firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage'],
-          }
-        }
-      }
+      minify: 'esbuild',
     },
     define: {
       'process.env.NODE_ENV': JSON.stringify(mode),
