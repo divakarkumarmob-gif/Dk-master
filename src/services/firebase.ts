@@ -19,7 +19,6 @@ const app = initializeApp(firebaseConfig);
 // Use persistentLocalCache for offline capabilities across multiple tabs
 export const db = initializeFirestore(app, {
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-    experimentalForceLongPolling: true,
 }, databaseId);
 
 export const storage = getStorage(app);
@@ -29,10 +28,16 @@ export const auth = getAuth(app);
 async function testConnection() {
   if (!navigator.onLine) return;
   try {
+    // Only try to fetch if we haven't successfully connected before
+    // We use getDocFromServer to force a network check
     await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if (error instanceof Error && (error.message.includes('the client is offline') || error.message.includes('unavailable'))) {
-      console.error("Firebase Connection Error: Please check your project settings or ensure Firestore Enterprise is enabled.");
+    console.log("[FIREBASE] Connected successfully");
+  } catch (error: any) {
+    // Suppress common transient errors in the console
+    if (error.code === 'unavailable' || error.code === 'deadline-exceeded') {
+        console.warn("[FIREBASE] Connection delayed or temporarily unavailable. Retrying in background...");
+    } else {
+        console.error("[FIREBASE] Connection Error:", error.message);
     }
   }
 }

@@ -6,6 +6,7 @@ import fs from 'fs-extra';
 import { GoogleGenAI } from '@google/genai';
 import nodemailer from 'nodemailer';
 import admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 import cors from 'cors';
 import { Redis } from '@upstash/redis';
 import stringSimilarity from 'string-similarity';
@@ -28,7 +29,7 @@ if (!admin.apps.length) {
   }
 }
 
-const db = admin.firestore();
+const db = getFirestore(undefined, process.env.VITE_FIREBASE_DATABASE_ID || undefined);
 const app = express();
 const PORT = 3000;
 
