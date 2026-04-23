@@ -31,7 +31,7 @@ if (!admin.apps.length) {
 
 const db = getFirestore(undefined, process.env.VITE_FIREBASE_DATABASE_ID || undefined);
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Firebase Health Check Helper
 const isFirebaseReady = (): boolean => {
