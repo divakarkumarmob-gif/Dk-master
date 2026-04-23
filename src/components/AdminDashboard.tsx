@@ -129,11 +129,11 @@ export default function AdminDashboard() {
       {/* Main Content Area */}
       <div 
           className={cn(
-            "flex-1 p-8 transition-colors duration-500 bg-blue-500 h-full overflow-y-auto",
+            "flex-1 pt-4 px-8 pb-8 transition-colors duration-500 bg-blue-500 h-full overflow-y-auto",
             !isSidebarOpen ? "opacity-100" : "opacity-60"
           )}
       >
-        <h2 className="text-2xl font-black text-white mb-6 capitalize">{menuItems.find(m => m.id === view)?.label}</h2>
+        <h2 className="text-2xl font-black text-white mb-2 capitalize">{menuItems.find(m => m.id === view)?.label}</h2>
         
         <div className="space-y-4">
           {view === 'alerted' && (

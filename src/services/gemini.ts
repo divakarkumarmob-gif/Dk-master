@@ -1,4 +1,3 @@
-import { GoogleGenAI } from "@google/genai";
 import { FALLBACK_QUESTIONS } from "../constants/fallbackData";
 import { db, auth } from "./firebase";
 
@@ -30,7 +29,6 @@ const CONFIG = {
 
 class AIManager {
   private static instance: AIManager;
-  private ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
   private memoryCache = new Map<string, { data: any; expiry: number }>();
   private pendingRequests = new Map<string, Promise<any>>();
   private lastCallTime = 0;
@@ -203,12 +201,6 @@ class AIManager {
         return this.pendingRequests.get(operationId);
     }
 
-    const allowed = await this.checkDailyLimit();
-    if (!allowed) {
-        console.warn("CRITICAL: Daily Usage Limit Reached. Using Fallbacks.");
-        return fallback;
-    }
-
     const promise = new Promise<T>((resolve, reject) => {
       this.queue.push({
         id: operationId,
@@ -227,14 +219,31 @@ class AIManager {
     
     return promise;
   }
-
-
-  public getRawAI() {
-    return this.ai;
-  }
 }
 
 const manager = AIManager.getInstance();
+
+// Helper to call server AI
+async function callServerAI(path: string, body: any) {
+    // For APK/Mobile, we might need a full URL. We use VITE_API_BASE_URL if provided.
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+    const fullPath = `${baseUrl}${path}`;
+    
+    const idToken = await auth.currentUser?.getIdToken();
+    const result = await fetch(fullPath, {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json', 
+            'Authorization': `Bearer ${idToken}` 
+        },
+        body: JSON.stringify(body)
+    });
+    if (!result.ok) {
+        const err = await result.json();
+        throw new Error(err.error || 'AI Server error');
+    }
+    return result.json();
+}
 
 export const validateQuestion = (q: any): any => {
   if (!q || typeof q !== 'object') return null;
@@ -264,10 +273,9 @@ export const geminiService = {
   async generateQuestions(subject: string, chapter: string, count: number = 30) {
     const cacheKey = `qs_${subject}_${chapter}_${count}`;
     return manager.executeSafeCall(cacheKey, async () => {
-      const resp = await manager.getRawAI().models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `Generate ${count} NEET MCQs: ${subject} - ${chapter}. JSON array: [{text, options, correctAnswer, explanation}].`,
-        config: { responseMimeType: "application/json" }
+      const resp = await callServerAI('/api/ai/generate', {
+        prompt: `Generate ${count} NEET MCQs: ${subject} - ${chapter}. JSON array: [{text, options, correctAnswer, explanation}].`,
+        responseMimeType: "application/json"
       });
       return safeJsonParse(resp.text, FALLBACK_QUESTIONS);
     }, FALLBACK_QUESTIONS, 'STATIC', 'high');
@@ -277,10 +285,9 @@ export const geminiService = {
     const today = new Date().toISOString().split('T')[0];
     const cacheKey = `major_test_${today}`;
     return manager.executeSafeCall(cacheKey, async () => {
-      const resp = await manager.getRawAI().models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `NEET Major Test (180 Qs: 90 Bio, 45 Phy, 45 Chem). JSON object: { Biology: [], Physics: [], Chemistry: [] }.`,
-        config: { responseMimeType: "application/json" }
+      const resp = await callServerAI('/api/ai/generate', {
+        prompt: `NEET Major Test (180 Qs: 90 Bio, 45 Phy, 45 Chem). JSON object: { Biology: [], Physics: [], Chemistry: [] }.`,
+        responseMimeType: "application/json"
       });
       const data = JSON.parse(resp.text || '{}');
       return [...(data.Physics || []), ...(data.Chemistry || []), ...(data.Biology || [])].map(validateQuestion);
@@ -289,10 +296,9 @@ export const geminiService = {
 
   async generateErrorFixQuestions(weakConcepts: string, count: number = 20) {
     return manager.executeSafeCall(`efix_${weakConcepts.substring(0, 50)}`, async () => {
-      const resp = await manager.getRawAI().models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `Targeted NEET practice for weak areas: ${weakConcepts}. ${count} MCQs. JSON array.`,
-        config: { responseMimeType: "application/json" }
+      const resp = await callServerAI('/api/ai/generate', {
+        prompt: `Targeted NEET practice for weak areas: ${weakConcepts}. ${count} MCQs. JSON array.`,
+        responseMimeType: "application/json"
       });
       return safeJsonParse(resp.text, FALLBACK_QUESTIONS);
     }, FALLBACK_QUESTIONS, 'DYNAMIC', 'normal');
@@ -303,26 +309,21 @@ export const geminiService = {
     const key = cacheKey || (doubt && doubt.length < 50 ? `doubt_${doubt.toLowerCase().trim()}` : `raw_${Date.now()}`);
     
     return manager.executeSafeCall(key, async () => {
-      const idToken = await auth.currentUser?.getIdToken();
-      const result = await fetch('/api/ask', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-        body: JSON.stringify({ question: doubt, image: imageData, context })
+      const result = await callServerAI('/api/ask', {
+        question: doubt, 
+        image: imageData, 
+        context 
       });
-      const data = await result.json();
-      return data.answer || "Processing error.";
+      return result.answer || "Processing error.";
     }, "System cooling down. Reference NCERT.", 'DYNAMIC', priority);
   },
 
   async analyzeImage(imageData: string, customPrompt?: string) {
     const key = `img_an_${imageData.substring(0, 100)}`;
     return manager.executeSafeCall(key, async () => {
-      const resp = await manager.getRawAI().models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [
-          { inlineData: { data: imageData.split(',')[1], mimeType: "image/png" } },
-          { text: customPrompt || "Analyze for NEET student." }
-        ]
+      const resp = await callServerAI('/api/ai/analyze-image', {
+        image: imageData,
+        prompt: customPrompt || "Analyze for NEET student."
       });
       return resp.text || "Analysis failed.";
     }, "Image analysis offline.", 'DYNAMIC', 'high');
@@ -331,13 +332,9 @@ export const geminiService = {
   async extractQuestionsFromImage(imageData: string) {
     const key = `ocr_${imageData.substring(0, 100)}`;
     return manager.executeSafeCall(key, async () => {
-      const resp = await manager.getRawAI().models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [
-          { inlineData: { data: imageData.split(',')[1], mimeType: "image/png" } },
-          { text: "Extract MCQs JSON array: [{text, options, correctAnswer, explanation}]" }
-        ],
-        config: { responseMimeType: "application/json" }
+      const resp = await callServerAI('/api/ai/analyze-image', {
+        image: imageData,
+        prompt: "Extract MCQs JSON array: [{text, options, correctAnswer, explanation}]"
       });
       return safeJsonParse(resp.text, []);
     }, [], 'STATIC', 'high');
@@ -346,9 +343,8 @@ export const geminiService = {
   async summarizeResponse(text: string | null | undefined): Promise<string> {
     if (!text) return "No data.";
     return manager.executeSafeCall(`sum_${text.substring(0, 50)}`, async () => {
-      const resp = await manager.getRawAI().models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `Summarize: ${text}`
+      const resp = await callServerAI('/api/ai/generate', {
+        prompt: `Summarize: ${text}`
       });
       return resp.text || "Summary failed.";
     }, "Summary failed.", 'DYNAMIC', 'background');
@@ -356,9 +352,8 @@ export const geminiService = {
 
   async getStudyPlan(performanceData: string) {
     return manager.executeSafeCall(`plan_${performanceData.substring(0, 50)}`, async () => {
-      const resp = await manager.getRawAI().models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `Analyze NEET performance and suggest plan: ${performanceData}`
+      const resp = await callServerAI('/api/ai/generate', {
+        prompt: `Analyze NEET performance and suggest plan: ${performanceData}`
       });
       return resp.text || "Plan failed.";
     }, "Focus on Biology NCERT.", 'DYNAMIC', 'background');
@@ -372,13 +367,14 @@ export const geminiService = {
     // Use a completely new cache key prefix to ensure any old hallucinated IDs are ignored globally
     return manager.executeSafeCall(`ytsearch_v4_${topic}`, async () => {
       try {
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
         const idToken = await auth.currentUser?.getIdToken();
         
         // Use a strict 4.5 second timeout on the client to guarantee 5s total interaction
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 4500);
 
-        const result = await fetch('/api/youtube-search', {
+        const result = await fetch(`${baseUrl}/api/youtube-search`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
           body: JSON.stringify({ topic }),

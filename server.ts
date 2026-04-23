@@ -254,6 +254,63 @@ app.post('/api/auth/verify-otp', authMiddleware, async (req: AuthRequest, res) =
 });
 
 // AI Route - Protected by Auth
+app.post('/api/ai/generate', authMiddleware, async (req: AuthRequest, res) => {
+  const { prompt, systemInstruction, model = 'gemini-3-flash-preview', responseMimeType } = req.body;
+  if (!prompt) return res.status(400).json({ error: 'Prompt required' });
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  
+  const uid = req.user.uid;
+  if (!process.env.GEMINI_API_KEY) {
+    return res.status(500).json({ error: 'GEMINI_API_KEY missing on server' });
+  }
+
+  // Rate limit
+  const allowed = await checkCooldownAndRateLimit(uid, res as any);
+  if (!allowed) return;
+
+  try {
+    const result = await ai.models.generateContent({
+        model: model,
+        contents: prompt,
+        config: { 
+          systemInstruction: systemInstruction || undefined,
+          responseMimeType: responseMimeType || undefined
+        }
+    });
+    res.json({ text: result.text });
+  } catch (error: any) {
+    console.error('[AI] Generation failed:', error);
+    res.status(500).json({ error: error.message || 'AI Generation failed' });
+  }
+});
+
+// AI Image Analysis - Protected by Auth
+app.post('/api/ai/analyze-image', authMiddleware, async (req: AuthRequest, res) => {
+    const { image, prompt, systemInstruction } = req.body;
+    if (!image) return res.status(400).json({ error: 'Image required' });
+    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const uid = req.user.uid;
+    const allowed = await checkCooldownAndRateLimit(uid, res as any);
+    if (!allowed) return;
+
+    try {
+        const result = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: [
+                { inlineData: { data: image.split(',')[1] || image, mimeType: "image/png" } },
+                { text: prompt || "Analyze this for a NEET student." }
+            ],
+            config: { systemInstruction: systemInstruction || undefined }
+        });
+        res.json({ text: result.text });
+    } catch (error: any) {
+        console.error('[AI] Image analysis failed:', error);
+        res.status(500).json({ error: error.message || 'Image analysis failed' });
+    }
+});
+
+// AI Route - Protected by Auth
 app.post('/api/ask', authMiddleware, async (req: AuthRequest, res) => {
   const { question } = req.body;
   if (!question || typeof question !== 'string') return res.status(400).json({ error: 'Question required' });

@@ -12,14 +12,21 @@ export function AdminStudyMaterial() {
   const [file, setFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 2000);
+  };
 
   const handleUpload = async () => {
-    if (!subject || !type || !name.trim() || !file) return;
+    if (!subject || !type || !name.trim() || !file) {
+      showToast('Please fill all fields', 'error');
+      return;
+    }
 
     setIsUploading(true);
     setUploadProgress(0);
-    setSuccess(false);
 
     try {
       // Create a unique file name
@@ -37,7 +44,7 @@ export function AdminStudyMaterial() {
         (error) => {
           console.error("Upload failed", error);
           setIsUploading(false);
-          alert('Upload failed: ' + error.message);
+          showToast('Upload failed!', 'error');
         }, 
         async () => {
           // Upload completed successfully
@@ -54,37 +61,44 @@ export function AdminStudyMaterial() {
           });
 
           setIsUploading(false);
-          setSuccess(true);
+          showToast('Upload successfully!', 'success');
           setFile(null);
           setName('');
-          setTimeout(() => setSuccess(false), 3000);
         }
       );
     } catch (e: any) {
       console.error(e);
-      alert('Error: ' + e.message);
+      showToast('Upload error!', 'error');
       setIsUploading(false);
     }
   };
 
   return (
-    <div className="max-w-xl mx-auto bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-      <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2">
-        <Upload className="text-orange-500" />
-        Upload Study Material
-      </h2>
+    <div className="w-full max-w-2xl mx-auto -mt-10 overflow-visible relative">
+      {/* Toast Notifications */}
+      {toast && (
+        <div className={cn(
+          "fixed top-10 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-full font-black text-sm shadow-2xl flex items-center gap-3 animate-in fade-in zoom-in duration-300",
+          toast.type === 'success' ? "bg-white text-green-600" : "bg-white text-red-600"
+        )}>
+          {toast.type === 'success' ? <CheckCircle size={18} /> : <Loader2 size={18} className="animate-spin" />}
+          {toast.message}
+        </div>
+      )}
 
       <div className="space-y-6">
-        <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Select Subject</label>
-          <div className="grid grid-cols-3 gap-2">
+        <div className="bg-white/10 backdrop-blur-md p-6 rounded-[2.5rem] border border-white/20 shadow-xl">
+          <label className="block text-[10px] font-black text-white/50 uppercase tracking-[4px] mb-4 text-center">1. Choose Subject</label>
+          <div className="grid grid-cols-3 gap-3">
             {['Physics', 'Chemistry', 'Biology'].map((subj) => (
               <button
                 key={subj}
                 onClick={() => setSubject(subj as any)}
                 className={cn(
-                  "py-3 rounded-xl font-bold text-sm transition-colors border",
-                  subject === subj ? "bg-orange-50 border-orange-200 text-orange-700" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                  "py-4 rounded-2xl font-black text-xs transition-all duration-300 transform",
+                  subject === subj 
+                    ? "bg-white text-blue-600 scale-95 shadow-xl shadow-white/20" 
+                    : "bg-white/5 border border-white/10 text-white hover:bg-white/10"
                 )}
               >
                 {subj}
@@ -93,16 +107,18 @@ export function AdminStudyMaterial() {
           </div>
         </div>
 
-        <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Material Type</label>
-          <div className="grid grid-cols-2 gap-2">
+        <div className="bg-white/10 backdrop-blur-md p-6 rounded-[2.5rem] border border-white/20 shadow-xl">
+          <label className="block text-[10px] font-black text-white/50 uppercase tracking-[4px] mb-4 text-center">2. Material Type</label>
+          <div className="grid grid-cols-2 gap-3">
             {['NCERT', 'Module'].map((t) => (
               <button
                 key={t}
                 onClick={() => setType(t as any)}
                 className={cn(
-                  "py-3 rounded-xl font-bold text-sm transition-colors border",
-                  type === t ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                  "py-4 rounded-2xl font-black text-xs transition-all duration-300 transform",
+                  type === t 
+                    ? "bg-white text-blue-600 scale-95 shadow-xl shadow-white/20" 
+                    : "bg-white/5 border border-white/10 text-white hover:bg-white/10"
                 )}
               >
                 {t}
@@ -111,64 +127,70 @@ export function AdminStudyMaterial() {
           </div>
         </div>
 
-        <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Chapter / Notes Name</label>
-          <input 
-            type="text" 
-            placeholder="e.g. Electric Charges and Fields"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 p-4 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Select PDF</label>
-          <div className="relative">
+        <div className="bg-white/10 backdrop-blur-md p-6 rounded-[2.5rem] border border-white/20 shadow-xl">
+          <label className="block text-[10px] font-black text-white/50 uppercase tracking-[4px] mb-4 text-center">3. Details & Selection</label>
+          <div className="space-y-4">
             <input 
-              type="file" 
-              accept=".pdf"
-              id="file-upload"
-              onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
-              className="hidden"
+              type="text" 
+              placeholder="Topic or Chapter Name..."
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white placeholder:text-white/20 font-bold focus:outline-none focus:ring-2 focus:ring-white/20"
             />
-            <label 
-              htmlFor="file-upload" 
-              className="w-full bg-slate-50 border-2 border-dashed border-slate-300 p-6 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-orange-400 hover:bg-orange-50/50 transition-colors"
-            >
-              <FileText className={cn("mb-2", file ? "text-orange-500" : "text-slate-400")} size={32} />
-              {file ? (
-                <span className="font-bold text-sm text-slate-700 text-center">{file.name}</span>
-              ) : (
-                <span className="font-bold text-sm text-slate-500">Tap to browse PDF (2-4 MB)</span>
-              )}
-            </label>
+            
+            <div className="relative">
+              <input 
+                type="file" 
+                accept=".pdf"
+                id="file-upload"
+                onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
+                className="hidden"
+              />
+              <label 
+                htmlFor="file-upload" 
+                className={cn(
+                  "w-full bg-white/5 border-2 border-dashed rounded-[2rem] p-10 flex flex-col items-center justify-center cursor-pointer transition-all duration-300",
+                  file ? "border-green-400/50 bg-green-400/10 text-green-400" : "border-white/10 text-white/30 hover:border-white/30 hover:bg-white/5"
+                )}
+              >
+                <FileText className="mb-2" size={48} />
+                {file ? (
+                  <span className="font-black text-sm text-center line-clamp-1 px-4">{file.name}</span>
+                ) : (
+                  <span className="font-black text-[10px] uppercase tracking-[4px]">Select PDF File</span>
+                )}
+              </label>
+            </div>
           </div>
         </div>
 
-        <button 
-          disabled={!subject || !type || !name.trim() || !file || isUploading}
-          onClick={handleUpload}
-          className="w-full bg-slate-900 text-white font-black uppercase tracking-widest py-4 rounded-xl hover:bg-slate-800 active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none flex py-4 justify-center items-center gap-2 relative overflow-hidden"
-        >
-          {isUploading ? (
-             <>
-               <Loader2 size={20} className="animate-spin relative z-10" />
-               <span className="relative z-10">Uploading... {Math.round(uploadProgress)}%</span>
-               <div className="absolute inset-0 bg-slate-700 pointer-events-none" style={{ width: `${uploadProgress}%` }} />
-             </>
-          ) : success ? (
-             <>
-               <CheckCircle size={20} className="text-emerald-400" />
-               <span>Upload Complete</span>
-             </>
-          ) : (
-             <>
-               <Upload size={20} />
-               <span>Upload Material</span>
-             </>
-          )}
-        </button>
+        {isUploading ? (
+          <div className="bg-white/10 backdrop-blur-md p-8 rounded-[2.5rem] border border-white/20 overflow-hidden relative shadow-xl">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[10px] font-black text-white/50 uppercase tracking-[4px]">Uploading...</span>
+              <span className="text-[10px] font-black text-white">{Math.round(uploadProgress)}%</span>
+            </div>
+            <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
+              <div 
+                className="bg-white h-full transition-all duration-300 shadow-[0_0_20px_rgba(255,255,255,0.8)]" 
+                style={{ width: `${uploadProgress}%` }} 
+              />
+            </div>
+          </div>
+        ) : (
+          <button 
+            disabled={!subject || !type || !name.trim() || !file}
+            onClick={handleUpload}
+            className={cn(
+              "w-full h-20 rounded-[2.5rem] font-black uppercase tracking-[8px] text-sm transition-all duration-300 transform active:scale-95 shadow-2xl",
+              (!subject || !type || !name.trim() || !file)
+                ? "bg-white/5 text-white/20 cursor-not-allowed"
+                : "bg-white text-blue-600 hover:shadow-white/40 hover:-translate-y-1"
+            )}
+          >
+            Start Upload
+          </button>
+        )}
       </div>
     </div>
   );

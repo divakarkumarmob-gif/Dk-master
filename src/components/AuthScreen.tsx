@@ -35,7 +35,8 @@ export const AuthScreen: React.FC = () => {
     setLoading(true);
     setError('');
   try {
-    const response = await fetch('/api/auth/send-otp', {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+    const response = await fetch(`${baseUrl}/api/auth/send-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
@@ -62,7 +63,8 @@ export const AuthScreen: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/auth/verify-otp', {
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+      const response = await fetch(`${baseUrl}/api/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code: otp }),
