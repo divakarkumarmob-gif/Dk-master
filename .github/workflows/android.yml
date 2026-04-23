@@ -39,8 +39,8 @@ jobs:
       - name: Build APK
         run: |
           cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug
+          # Use system-installed gradle instead of the wrapper if it's corrupt
+          gradle assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
