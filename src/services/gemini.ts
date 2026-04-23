@@ -168,14 +168,16 @@ class AIManager {
            console.error(`AI System Error [${item.id}]:`, error);
            
            // Show specific AI error to user
-           const errorMsg = error.message.toLowerCase();
-           let userFriendlyMsg = "AI link latency. Please check your data connection.";
+           const errorMsg = String(error.message || '').toLowerCase();
+           let userFriendlyMsg = error.message || "AI link latency. Please check your data connection.";
            
-           if (errorMsg.includes('api key')) userFriendlyMsg = "AI Configuration Error: API key missing on server.";
-           if (errorMsg.includes('quota') || errorMsg.includes('limit')) userFriendlyMsg = "AI Quota exceeded or usage blocked.";
-           if (errorMsg.includes('429')) userFriendlyMsg = "Rate limit reached. System is cooling down (approx 30-60s).";
-           if (errorMsg.includes('offens') || errorMsg.includes('safe')) userFriendlyMsg = "AI Security: Request blocked by safety filter.";
-           if (errorMsg.includes('model')) userFriendlyMsg = "AI Link restricted to approved models only.";
+           // Catch common Fetch/CORS errors
+           if (errorMsg === 'failed to fetch') userFriendlyMsg = "Network Error: Could not connect to the AI Server (CORS/Offline).";
+           // Override mapped known issues
+           else if (errorMsg.includes('api key')) userFriendlyMsg = "AI Configuration Error: API key missing on server.";
+           else if (errorMsg.includes('quota') || errorMsg.includes('limit') || errorMsg.includes('429')) userFriendlyMsg = "AI Quota exceeded or rate limit reached.";
+           else if (errorMsg.includes('offens') || errorMsg.includes('safe')) userFriendlyMsg = "AI Security: Request blocked by safety filter.";
+           else if (errorMsg.includes('model')) userFriendlyMsg = "AI Link restricted to approved models only.";
 
            useAppStore.getState().showToast(userFriendlyMsg, 'error');
            useAppStore.getState().addErrorLog(userFriendlyMsg);

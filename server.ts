@@ -45,18 +45,27 @@ const redis = new Redis({
 });
 
 // 3. CORS Protection
-const allowedOrigins = ['https://dk-master.vercel.app'];
-if (process.env.NODE_ENV !== 'production') {
-  allowedOrigins.push('http://localhost:3000', 'http://localhost:5173');
-}
+const allowedOrigins = [
+  'https://dk-master.vercel.app',
+  'http://localhost:3000', 
+  'http://localhost:5173'
+];
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin) || (process.env.NODE_ENV !== 'production' && origin.endsWith('.run.app'))) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+    // Treat no origin as allowed (e.g. mobile apps, curl)
+    if (!origin) return callback(null, true);
+    
+    // Always allow localhost and specific domains
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    
+    // Always allow any Google Cloud Run (.run.app) or App Engine (.app) origin 
+    // regardless of NODE_ENV so that deployments work seamlessly
+    if (origin.endsWith('.run.app') || origin.endsWith('.web.app') || origin.endsWith('.firebaseapp.com')) {
+      return callback(null, true);
     }
+    
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true
 }));
