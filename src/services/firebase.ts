@@ -4,22 +4,29 @@ import { getAuth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
-  apiKey: process.env.VITE_FIREBASE_API_KEY,
-  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.VITE_FIREBASE_APP_ID,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 // Validate config
-const isConfigValid = firebaseConfig.apiKey && firebaseConfig.apiKey !== 'undefined';
+const isConfigValid = firebaseConfig.apiKey && firebaseConfig.apiKey !== 'undefined' && firebaseConfig.apiKey !== '';
 
 if (!isConfigValid) {
-  console.error("[FIREBASE] Configuration is missing or invalid. Check environment variables.");
+  console.error("[FIREBASE] Configuration is missing or invalid. Check GitHub Secrets.");
+  // Add a visible indicator for the APK user
+  if (typeof window !== 'undefined') {
+    const errorMsg = document.createElement('div');
+    errorMsg.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:black;color:yellow;padding:20px;z-index:9999999;font-family:monospace;font-size:10px;';
+    errorMsg.innerHTML = `<strong>FIREBASE CONFIG MISSING</strong><br/>Steps:<br/>1. Go to Repo Settings > Secrets<br/>2. Add VITE_FIREBASE_API_KEY, etc.<br/>3. Re-run GitHub Action`;
+    document.body.appendChild(errorMsg);
+  }
 }
 
-const databaseId = process.env.VITE_FIREBASE_DATABASE_ID;
+const databaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID;
 
 const app = initializeApp(isConfigValid ? firebaseConfig : {
     apiKey: "missing",

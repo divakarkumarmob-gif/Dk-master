@@ -457,13 +457,18 @@ export const dataSync = {
       if (!userId) return;
       try {
           const userRef = doc(db, 'users', userId);
+          // We use setDoc with merge: true which works for both create and update
           await setDoc(userRef, { 
               isOnline, 
               activeChatId,
               lastSeen: new Date().toISOString() 
           }, { merge: true });
-      } catch (e) {
-          console.error("Failed to update presence:", e);
+      } catch (e: any) {
+          if (e.message?.includes('permissions')) {
+              console.warn("Presence update permission deferred - expected during login transition");
+          } else {
+              console.error("Failed to update presence:", e);
+          }
       }
   },
 

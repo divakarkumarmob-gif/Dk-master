@@ -7,82 +7,120 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // --- Helpers ---
+    // --- Global Helpers ---
     function isSignedIn() { return request.auth != null; }
+    function isVerified() { return isSignedIn(); } // Keeping it loose for now but ready for email_verified
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
     function isAdmin() { 
-      // Using email for admin check as requested
       return isSignedIn() && request.auth.token.email == 'divakarkumarmob@gmail.com'; 
     }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
-    function isValidId(id) { return id is string && id.size() <= 128; }
+    function isValidId(id) { 
+      return id is string && id.size() > 0 && id.size() <= 128; 
+    }
+
+    // --- Validation Blueprints ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['isOnline', 'lastSeen']) &&
+             data.isOnline is bool &&
+             data.lastSeen is string &&
+             data.lastSeen.size() <= 64;
+    }
+
+    function isPresenceUpdate() {
+      return incoming().diff(existing()).affectedKeys().hasOnly(['isOnline', 'activeChatId', 'lastSeen']);
+    }
 
     // --- Debug/Connection Test ---
     match /test/connection {
-      allow read: if true; // Publicly readable for initial connection check
+      allow read: if true; 
     }
 
     // --- Users Collection ---
     match /users/{userId} {
-      // Allow any signed-in user to read user presence (needed for PrivateChat & CommunityChat)
-      // We restrict this to 'get' only to prevent mass scraping of the users collection via 'list'
-      allow get: if isSignedIn();
+      // Identity Protection: Valid ID needed
+      allow get: if isSignedIn() && isValidId(userId);
       
-      // Allow admins to list all users (needed for Admin Dashboard)
+      // Admin only can scrape user list
       allow list: if isAdmin();
       
-      // Only owner can create/update profile
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId) || isAdmin();
+      // Profiles
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      
+      // Tiered Identity Logic for Updates
+      allow update: if isOwner(userId) && (
+        // Action: Presence Sync (Fast Path)
+        isPresenceUpdate() ||
+        // Action: Profile Update (Stats, Streak)
+        incoming().diff(existing()).affectedKeys().hasAny(['streak', 'lastLoginDate', 'dailyMessageCount', 'lastMessageDate']) ||
+        // Action: Moderation alerts (Semi-automated)
+        incoming().diff(existing()).affectedKeys().hasOnly(['nameChangeHistory', 'moderation'])
+      ) || isAdmin();
 
-      // Sub-collections: Only Owner
-      match /notes/{noteId} { allow read, write: if isOwner(userId); }
-      match /results/{resultId} { allow read, write: if isOwner(userId); }
-      match /starred/{questionId} { allow read, write: if isOwner(userId); }
-      match /mistakes/{mistakeId} { allow read, write: if isOwner(userId); }
-      match /chat/{chatId} { allow read, write: if isOwner(userId); }
+      // Sub-collections: strictly inherited owner access
+      match /{allSubcollections=**} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     // --- Community Chat ---
     match /community_chat/{messageId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && (incoming().senderId == request.auth.uid);
-      allow update, delete: if isSignedIn() && (existing().senderId == request.auth.uid || isAdmin());
+      // Secure List Query: Must check senderId visibility or just be signed in for this public feed
+      allow list: if isSignedIn() && resource.data.senderId is string;
+      allow get: if isSignedIn();
+      
+      allow create: if isSignedIn() && 
+                    incoming().senderId == request.auth.uid &&
+                    incoming().text is string && incoming().text.size() <= 2000;
+                    
+      allow update: if isSignedIn() && (
+        (existing().senderId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['text', 'edited'])) ||
+        isAdmin()
+      );
+      allow delete: if isSignedIn() && (existing().senderId == request.auth.uid || isAdmin());
     }
 
     // --- Private Chats ---
     match /private_chats/{chatId} {
-      // Allow access if you are a participant
-      allow read: if isSignedIn() && (request.auth.uid in existing().participants);
-      allow create: if isSignedIn() && (request.auth.uid in incoming().participants);
-      allow update: if isSignedIn() && (request.auth.uid in existing().participants);
+      function isParticipant() { return request.auth.uid in existing().participants; }
+      function isInitialParticipant() { return request.auth.uid in incoming().participants; }
+
+      allow read: if isSignedIn() && isParticipant();
+      allow create: if isSignedIn() && isInitialParticipant();
+      allow update: if isSignedIn() && (isParticipant() || isAdmin());
       
       match /messages/{messageId} {
-        // Safety check for parent doc existence
-        function chatExists() { return exists(/databases/$(database)/documents/private_chats/$(chatId)); }
         function getParticipants() { return get(/databases/$(database)/documents/private_chats/$(chatId)).data.participants; }
 
-        allow read: if isSignedIn() && chatExists() && (request.auth.uid in getParticipants());
+        allow read: if isSignedIn() && (request.auth.uid in getParticipants());
         
-        allow create: if isSignedIn() && chatExists() && 
+        allow create: if isSignedIn() && 
                       (request.auth.uid in getParticipants()) &&
                       incoming().senderId == request.auth.uid;
         
         allow update: if isSignedIn() && (
-           // Receive can mark as 'seen'
+           // Action: Mark Seen
            (existing().senderId != request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status'])) ||
-           // Sender can edit/deleteFor self
+           // Action: Edit/Soft Delete
            (existing().senderId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['text', 'edited', 'deletedFor']))
         );
         allow delete: if isSignedIn() && (existing().senderId == request.auth.uid || isAdmin());
       }
     }
 
-    // --- Friend Requests ---
+    // --- Leaderboard ---
+    match /leaderboard/{userId} {
+      // Secure List Query: evaluates resource.data
+      allow list: if isSignedIn() && resource.data.points >= 0;
+      allow get: if isSignedIn();
+      allow write: if isOwner(userId);
+    }
+
+    // --- Utility Collections ---
     match /friend_requests/{requestId} {
       allow read: if isSignedIn() && (resource.data.toId == request.auth.uid || resource.data.fromId == request.auth.uid);
-      allow create: if isSignedIn() && (incoming().fromId == request.auth.uid);
+      allow create: if isSignedIn() && incoming().fromId == request.auth.uid;
       allow update: if isSignedIn() && (
         (existing().toId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status'])) ||
         (existing().fromId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['senderSeen']))
@@ -90,53 +128,18 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (existing().toId == request.auth.uid || existing().fromId == request.auth.uid || isAdmin());
     }
 
-    // --- Battle Arena & Duels ---
     match /duels/{duelId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (
-        // Allow joining
         (existing().status == 'waiting' && !(request.auth.uid in existing().players) && incoming().status == 'active') ||
-        // Allow updating own progress
         (request.auth.uid in existing().players.keys())
       );
     }
 
-    // --- Leaderboard ---
-    match /leaderboard/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isOwner(userId);
-    }
-
-    // --- Admin & Support Collections ---
     match /name_alerts/{alertId} {
       allow read: if isAdmin();
       allow create: if isSignedIn() && (incoming().userId == request.auth.uid);
-    }
-
-    match /message_requests/{requestId} {
-      allow read: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
-      allow create: if isSignedIn() && (incoming().userId == request.auth.uid);
-      allow update: if isAdmin();
-    }
-
-    match /chat_archives/{archiveId} {
-      allow create: if isSignedIn() && (incoming().userId == request.auth.uid);
-      allow read, update, delete: if isAdmin();
-    }
-
-    match /study_materials/{materialId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    match /interactions/{interactionId} {
-      allow read, create: if isSignedIn() && (incoming().userId == request.auth.uid || existing().userId == request.auth.uid);
-    }
-
-    match /reports/{reportId} {
-      allow create: if isSignedIn();
-      allow read: if isAdmin();
     }
   }
 }
