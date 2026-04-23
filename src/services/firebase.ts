@@ -12,14 +12,26 @@ const firebaseConfig = {
   appId: process.env.VITE_FIREBASE_APP_ID,
 };
 
+// Validate config
+const isConfigValid = firebaseConfig.apiKey && firebaseConfig.apiKey !== 'undefined';
+
+if (!isConfigValid) {
+  console.error("[FIREBASE] Configuration is missing or invalid. Check environment variables.");
+}
+
 const databaseId = process.env.VITE_FIREBASE_DATABASE_ID;
 
-const app = initializeApp(firebaseConfig);
+const app = initializeApp(isConfigValid ? firebaseConfig : {
+    apiKey: "missing",
+    authDomain: "missing",
+    projectId: "missing",
+    appId: "missing"
+});
 
 // Use persistentLocalCache for offline capabilities across multiple tabs
 export const db = initializeFirestore(app, {
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-}, databaseId);
+}, databaseId && databaseId !== 'undefined' ? databaseId : undefined);
 
 export const storage = getStorage(app);
 
