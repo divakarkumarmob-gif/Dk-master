@@ -1,8 +1,0 @@
-{
-	"appId": "com.neetpreppro.app",
-	"appName": "NEET Prep Pro",
-	"webDir": "dist",
-	"server": {
-		"androidScheme": "https"
-	}
-}

@@ -22,6 +22,18 @@ export const AuthScreen: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [debugClicks, setDebugClicks] = useState(0);
+  const [showDebug, setShowDebug] = useState(false);
+
+  const handleTitleClick = () => {
+    const next = debugClicks + 1;
+    if (next >= 5) {
+      setShowDebug(!showDebug);
+      setDebugClicks(0);
+    } else {
+      setDebugClicks(next);
+    }
+  };
 
   const resetForm = () => {
     setError('');
@@ -127,7 +139,10 @@ export const AuthScreen: React.FC = () => {
            <div className="w-16 h-16 bg-blue-600/20 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-500/30">
               <Sparkles className="text-blue-400" size={32} />
            </div>
-           <h2 className="text-2xl font-black tracking-tight text-white">
+           <h2 
+             className="text-2xl font-black tracking-tight text-white cursor-pointer select-none"
+             onClick={handleTitleClick}
+           >
              {isLogin ? 'Welcome Back' : 'Join NEET Prep'}
            </h2>
            <p className="text-slate-400 text-xs mt-1">
@@ -312,6 +327,24 @@ export const AuthScreen: React.FC = () => {
               </button>
             )}
         </div>
+
+        {showDebug && (
+          <div className="mt-6 p-4 rounded-xl bg-black/40 border border-slate-700 font-mono text-[8px] overflow-auto max-h-48">
+            <div className="flex justify-between mb-2">
+              <span className="text-blue-400 font-bold uppercase">Diagnostics</span>
+              <button onClick={() => setShowDebug(false)} className="text-slate-500 hover:text-white">Close</button>
+            </div>
+            <div className="space-y-1">
+              <p><span className="text-slate-500">API URL:</span> {import.meta.env.VITE_API_BASE_URL || 'NOT SET'}</p>
+              <p><span className="text-slate-500">FB KEY:</span> {import.meta.env.VITE_FIREBASE_API_KEY ? 'OK (Starts: ' + import.meta.env.VITE_FIREBASE_API_KEY.substring(0, 5) + '...)' : 'MISSING'}</p>
+              <p><span className="text-slate-500">PROJECT:</span> {import.meta.env.VITE_FIREBASE_PROJECT_ID || 'MISSING'}</p>
+              <p><span className="text-slate-500">DB ID:</span> {import.meta.env.VITE_FIREBASE_DATABASE_ID || '(default)'}</p>
+              <p><span className="text-slate-500">UA:</span> {navigator.userAgent.substring(0, 50)}...</p>
+              <p><span className="text-slate-500">ONLINE:</span> {navigator.onLine ? 'YES' : 'NO'}</p>
+              <p><span className="text-slate-500">BUILD:</span> {new Date().toLocaleString()}</p>
+            </div>
+          </div>
+        )}
       </motion.div>
     </div>
   );

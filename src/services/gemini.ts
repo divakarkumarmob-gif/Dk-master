@@ -1,5 +1,6 @@
 import { FALLBACK_QUESTIONS } from "../constants/fallbackData";
 import { db, auth } from "./firebase";
+import { useAppStore } from "../store/useAppStore";
 
 /**
  * ARCHITECTURAL DESIGN: AI MANAGER (SINGLETON) - PRODUCTION READY
@@ -49,7 +50,11 @@ class AIManager {
     const today = new Date().toISOString().split('T')[0];
     const key = `usage_${today}`;
     const count = parseInt(localStorage.getItem(key) || '0');
-    return count < CONFIG.MAX_DAILY_CALLS;
+    if (count >= CONFIG.MAX_DAILY_CALLS) {
+        useAppStore.getState().showToast(`Daily AI limit reached (${CONFIG.MAX_DAILY_CALLS}/50). Kal try karein!`, 'error');
+        return false;
+    }
+    return true;
   }
 
   private incrementUsage() {
@@ -161,6 +166,19 @@ class AIManager {
            item.resolve(item.fallback);
         } else {
            console.error(`AI System Error [${item.id}]:`, error);
+           
+           // Show specific AI error to user
+           const errorMsg = error.message.toLowerCase();
+           let userFriendlyMsg = "AI link latency. Please check your data connection.";
+           
+           if (errorMsg.includes('api key')) userFriendlyMsg = "AI Configuration Error: API key missing on server.";
+           if (errorMsg.includes('quota') || errorMsg.includes('limit')) userFriendlyMsg = "AI Quota exceeded or usage blocked.";
+           if (errorMsg.includes('429')) userFriendlyMsg = "Rate limit reached. System is cooling down (approx 30-60s).";
+           if (errorMsg.includes('offens') || errorMsg.includes('safe')) userFriendlyMsg = "AI Security: Request blocked by safety filter.";
+           if (errorMsg.includes('model')) userFriendlyMsg = "AI Link restricted to approved models only.";
+
+           useAppStore.getState().showToast(userFriendlyMsg, 'error');
+           useAppStore.getState().addErrorLog(userFriendlyMsg);
            item.resolve(item.fallback); // Fail gracefully
         }
       } finally {
@@ -200,6 +218,10 @@ class AIManager {
     if (this.pendingRequests.has(operationId)) {
         return this.pendingRequests.get(operationId);
     }
+
+    // Check daily limit before adding to queue
+    const canProceed = await this.checkDailyLimit();
+    if (!canProceed) return fallback;
 
     const promise = new Promise<T>((resolve, reject) => {
       this.queue.push({

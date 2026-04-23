@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../services/firebase';
 import { collection, onSnapshot, query, deleteDoc, doc, getDocs } from 'firebase/firestore';
 import { cn } from '../lib/utils';
-import { Trash2, AlertCircle, Shield, Bell, Pencil, Ban, Trash2 as TrashIcon, BookOpen } from 'lucide-react';
+import { Trash2, AlertCircle, Shield, Bell, Pencil, Ban, Trash2 as TrashIcon, BookOpen, Bug } from 'lucide-react';
+import { useAppStore } from '../store/useAppStore';
 import { dataSync } from '../services/dataSync';
 import { AdminStudyMaterial } from './AdminStudyMaterial';
 
@@ -10,7 +11,10 @@ export default function AdminDashboard() {
   const [items, setItems] = useState<any[]>([]);
   const [nameAlerts, setNameAlerts] = useState<any[]>([]);
   const [archives, setArchives] = useState<any[]>([]);
-  const [view, setView] = useState<'alerted' | 'blocked' | 'names' | 'archives' | 'study_material'>('alerted');
+  const [view, setView] = useState<'alerted' | 'blocked' | 'names' | 'archives' | 'study_material' | 'errors'>('alerted');
+  
+  const errorLogs = useAppStore(state => state.errorLogs);
+  const deleteErrorLog = useAppStore(state => state.deleteErrorLog);
 
   useEffect(() => {
     loadData();
@@ -82,7 +86,8 @@ export default function AdminDashboard() {
     { id: 'names', label: 'Name Changes', icon: Pencil },
     { id: 'blocked', label: 'Blocked', icon: Ban },
     { id: 'study_material', label: 'Upload Notes', icon: BookOpen },
-    { id: 'archives', label: 'Deleted Messages', icon: TrashIcon }
+    { id: 'archives', label: 'Deleted Messages', icon: TrashIcon },
+    { id: 'errors', label: 'Error Logs', icon: Bug }
   ] as const;
 
   return (
@@ -95,14 +100,14 @@ export default function AdminDashboard() {
       {/* Sidebar Navigation */}
       <div 
         className={cn(
-          "bg-white border-r border-slate-100 p-6 flex flex-col gap-6 transition-[width] duration-500 ease-out z-20 will-change-transform cursor-pointer h-full overflow-y-auto",
-          isSidebarOpen ? "w-64" : "w-20"
+          "bg-white border-r border-slate-100 py-6 flex flex-col gap-6 transition-[width] duration-500 ease-out z-20 will-change-transform cursor-pointer h-full overflow-y-auto overflow-x-hidden",
+          isSidebarOpen ? "w-52 px-4" : "w-[60px] px-2"
         )}
         onClick={() => setIsSidebarOpen(true)}
       >
-        <div className="flex items-center gap-2 text-slate-800">
+        <div className={cn("flex items-center text-slate-800", isSidebarOpen ? "gap-2 px-1" : "justify-center")}>
           <Shield className="text-orange-500 shrink-0" />
-          {isSidebarOpen && <h1 className="text-xl font-black">Admin</h1>}
+          {isSidebarOpen && <h1 className="text-xl font-black whitespace-nowrap">Admin</h1>}
         </div>
         
         <nav className="flex flex-col gap-2">
@@ -114,7 +119,8 @@ export default function AdminDashboard() {
                 key={item.id} 
                 onClick={(e) => { e.stopPropagation(); setView(item.id); setIsSidebarOpen(false); }}
                 className={cn(
-                  "p-4 rounded-xl font-bold text-sm flex items-center gap-3 transition-colors duration-200",
+                  "rounded-xl font-bold text-sm flex items-center transition-all duration-200 whitespace-nowrap",
+                  isSidebarOpen ? "p-3 gap-3" : "py-3 px-0 justify-center",
                   isActive ? 'bg-orange-50 text-orange-700' : 'text-slate-500 hover:bg-slate-50'
                 )}
               >
@@ -183,10 +189,6 @@ export default function AdminDashboard() {
               ))
           )}
 
-          {view === 'study_material' && (
-            <AdminStudyMaterial />
-          )}
-
           {view === 'archives' && (
               archives.length === 0 ? (
                 <div className="p-8 text-center text-slate-400 font-bold bg-white rounded-2xl border border-slate-100">No deleted archives.</div>
@@ -194,9 +196,27 @@ export default function AdminDashboard() {
                 <div key={arch.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
                   <div>
                     <p className="font-bold text-sm text-slate-800">{arch.text}</p>
-                    <p className="text-[10px] text-slate-400">Deleted: {new Date(arch.deletedAt).toLocaleString()}</p>
+                    <p className="text-[10px] text-slate-400">Deleted: {new Date(arch.timestamp).toLocaleString()}</p>
                   </div>
                   <button onClick={() => deleteArchive(arch.id)} className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 text-xs font-bold">Delete Forever</button>
+                </div>
+              ))
+          )}
+
+          {view === 'study_material' && (
+            <AdminStudyMaterial />
+          )}
+
+          {view === 'errors' && (
+              errorLogs.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 font-bold bg-white rounded-2xl border border-slate-100">No error logs found.</div>
+              ) : errorLogs.map((log: any) => (
+                <div key={log.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-sm text-slate-800">{log.message}</p>
+                    <p className="text-[10px] text-slate-400">{new Date(log.timestamp).toLocaleString()}</p>
+                  </div>
+                  <button onClick={() => deleteErrorLog(log.id)} className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 text-xs font-bold">Delete</button>
                 </div>
               ))
           )}

@@ -34,6 +34,7 @@ export default function PrivateChat({ chatId, otherUser, onBack }: { chatId: str
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
   const [isEmojiMenuOpen, setIsEmojiMenuOpen] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const QUICK_EMOJIS = ['😀', '😂', '❤️', '🙏', '👍', '🔥', '😢', '🥺', '😮', '🤔'];
 
   // Auto-scroll to bottom
@@ -141,14 +142,20 @@ export default function PrivateChat({ chatId, otherUser, onBack }: { chatId: str
   };
 
   const sendMessage = async (imageUrl?: string) => {
-    if ((!text.trim() && !imageUrl) || isBlocked || IBlockedThem || !user?.uid) return;
+    if ((!text.trim() && !imageUrl) || isBlocked || IBlockedThem || !user?.uid || isSending) return;
     
+    setIsSending(true);
     if (editingMsgId && text.trim()) {
-      await dataSync.editPrivateMessage(chatId, editingMsgId, text);
-      const currentId = editingMsgId;
-      setMessages(prev => prev.map(m => m.id === currentId ? { ...m, text, edited: true } : m)); // Optimistic Update
-      setEditingMsgId(null);
-      setText('');
+      try {
+        await dataSync.editPrivateMessage(chatId, editingMsgId, text);
+        const currentId = editingMsgId;
+        setMessages(prev => prev.map(m => m.id === currentId ? { ...m, text, edited: true } : m)); // Optimistic Update
+        setEditingMsgId(null);
+        setText('');
+      } catch (e) {
+        console.error("Failed to edit:", e);
+      }
+      setIsSending(false);
       return;
     }
 
@@ -178,6 +185,7 @@ export default function PrivateChat({ chatId, otherUser, onBack }: { chatId: str
     } catch (e) {
         console.error("Failed to send private message:", e);
     }
+    setIsSending(false);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

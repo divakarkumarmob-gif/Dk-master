@@ -12,7 +12,10 @@ service cloud.firestore {
     function isVerified() { return isSignedIn(); } // Keeping it loose for now but ready for email_verified
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
     function isAdmin() { 
-      return isSignedIn() && request.auth.token.email == 'divakarkumarmob@gmail.com'; 
+      return isSignedIn() && (
+        request.auth.token.email == 'divakarkumarmob@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
     }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
@@ -25,7 +28,7 @@ service cloud.firestore {
       return data.keys().hasAll(['isOnline', 'lastSeen']) &&
              data.isOnline is bool &&
              data.lastSeen is string &&
-             data.lastSeen.size() <= 64;
+             data.lastSeen.size() <= 128;
     }
 
     function isPresenceUpdate() {
@@ -42,8 +45,8 @@ service cloud.firestore {
       // Identity Protection: Valid ID needed
       allow get: if isSignedIn() && isValidId(userId);
       
-      // Admin only can scrape user list
-      allow list: if isAdmin();
+      // Allow users to list (for leaderboards)
+      allow list: if isSignedIn();
       
       // Profiles
       allow create: if isOwner(userId) && isValidUser(incoming());
@@ -58,16 +61,15 @@ service cloud.firestore {
         incoming().diff(existing()).affectedKeys().hasOnly(['nameChangeHistory', 'moderation'])
       ) || isAdmin();
 
-      // Sub-collections: strictly inherited owner access
+      // Sub-collections: owner or admin access
       match /{allSubcollections=**} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if isOwner(userId) || isAdmin();
       }
     }
 
     // --- Community Chat ---
     match /community_chat/{messageId} {
-      // Secure List Query: Must check senderId visibility or just be signed in for this public feed
-      allow list: if isSignedIn() && resource.data.senderId is string;
+      allow list: if isSignedIn();
       allow get: if isSignedIn();
       
       allow create: if isSignedIn() && 
@@ -79,6 +81,19 @@ service cloud.firestore {
         isAdmin()
       );
       allow delete: if isSignedIn() && (existing().senderId == request.auth.uid || isAdmin());
+    }
+
+    // --- Message Requests (Admin Only) ---
+    match /message_requests/{reqId} {
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // --- Chat Archives (System/Admin) ---
+    match /chat_archives/{archiveId} {
+      allow list, get: if isAdmin();
+      allow create: if isSignedIn(); // Allow user to archive their own deletions
+      allow update, delete: if isAdmin();
     }
 
     // --- Private Chats ---
@@ -111,19 +126,18 @@ service cloud.firestore {
 
     // --- Leaderboard ---
     match /leaderboard/{userId} {
-      // Secure List Query: evaluates resource.data
-      allow list: if isSignedIn() && resource.data.points >= 0;
-      allow get: if isSignedIn();
+      // Secure List Query
+      allow read: if isSignedIn();
       allow write: if isOwner(userId);
     }
 
     // --- Utility Collections ---
     match /friend_requests/{requestId} {
-      allow read: if isSignedIn() && (resource.data.toId == request.auth.uid || resource.data.fromId == request.auth.uid);
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && incoming().fromId == request.auth.uid;
       allow update: if isSignedIn() && (
-        (existing().toId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status'])) ||
-        (existing().fromId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['senderSeen']))
+        (existing().toId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
+        (existing().fromId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['senderSeen', 'updatedAt', 'status']))
       );
       allow delete: if isSignedIn() && (existing().toId == request.auth.uid || existing().fromId == request.auth.uid || isAdmin());
     }
@@ -138,7 +152,7 @@ service cloud.firestore {
     }
 
     match /name_alerts/{alertId} {
-      allow read: if isAdmin();
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow create: if isSignedIn() && (incoming().userId == request.auth.uid);
     }
   }

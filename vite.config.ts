@@ -1,4 +1,3 @@
-import legacy from '@vitejs/plugin-legacy';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
@@ -7,20 +6,11 @@ import {defineConfig, loadEnv} from 'vite';
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   
-  // Log configuration status for debugging in builds
-  console.log('--- Build Config ---');
-  console.log('Mode:', mode);
-  console.log('Base:', './');
-  console.log('Firebase API Key length:', env.VITE_FIREBASE_API_KEY?.length || 0);
-  
   return {
     base: './',
     plugins: [
       react(), 
-      tailwindcss(),
-      legacy({
-        targets: ['defaults', 'not IE 11', 'Android >= 7'],
-      })
+      tailwindcss()
     ],
     build: {
       outDir: 'dist',
@@ -40,6 +30,7 @@ export default defineConfig(({mode}) => {
       'process.env.VITE_FIREBASE_APP_ID': JSON.stringify(env.VITE_FIREBASE_APP_ID),
       'process.env.VITE_FIREBASE_DATABASE_ID': JSON.stringify(env.VITE_FIREBASE_DATABASE_ID),
       'process.env.VITE_API_BASE_URL': JSON.stringify(env.VITE_API_BASE_URL || 'https://ais-pre-xi4r6z5fz3yufmouiurabg-741691813492.asia-southeast1.run.app'),
+      'import.meta.env.VITE_API_BASE_URL': JSON.stringify(env.VITE_API_BASE_URL || 'https://ais-pre-xi4r6z5fz3yufmouiurabg-741691813492.asia-southeast1.run.app'),
     },
     resolve: {
       alias: {
@@ -47,8 +38,6 @@ export default defineConfig(({mode}) => {
       },
     },
     server: {
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
     },
   };

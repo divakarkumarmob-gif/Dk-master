@@ -37,6 +37,7 @@ export default function CommunityChat() {
   const [isUploading, setIsUploading] = useState(false);
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
   const [isEmojiMenuOpen, setIsEmojiMenuOpen] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const QUICK_EMOJIS = ['😀', '😂', '❤️', '🙏', '👍', '🔥', '😢', '🥺', '😮', '🤔'];
 
   useEffect(() => {
@@ -166,17 +167,24 @@ export default function CommunityChat() {
   }
 
   const sendMessage = async (imageUrl?: string) => {
-    if ((!text.trim() && !imageUrl) || !user?.uid) return;
+    if ((!text.trim() && !imageUrl) || !user?.uid || isSending) return;
 
+    setIsSending(true);
     const myModeration = await dataSync.getUserModeration(user.uid);
     if (myModeration?.isBlocked) {
         alert("You are blocked from sending messages.");
+        setIsSending(false);
         return;
     }
 
     if (editingMsgId) {
-        await dataSync.updateCommunityMessage(editingMsgId, text);
-        setEditingMsgId(null);
+        try {
+          await dataSync.updateCommunityMessage(editingMsgId, text);
+          setEditingMsgId(null);
+          setText('');
+        } catch (e) {
+          console.error("Failed to edit:", e);
+        }
     } else {
         const newMessage = {
             id: 'temp-' + Date.now(),
@@ -202,8 +210,10 @@ export default function CommunityChat() {
             });
         } catch (e) {
             console.error("Failed to send message:", e);
+            // Rollback optimistic update if possible or show error
         }
     }
+    setIsSending(false);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

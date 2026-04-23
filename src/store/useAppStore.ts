@@ -67,6 +67,7 @@ interface AppState {
   lastUploadedPhotoName: string | null;
   activeTab: 'home' | 'analysis' | 'notes' | 'settings' | 'chat' | 'admin' | 'study_materials';
   preloadedAIPhoto: Note | null;
+  errorLogs: { id: string, message: string, timestamp: string }[];
   
   // Actions
   setUser: (user: AuthUser | null) => void;
@@ -92,6 +93,10 @@ interface AppState {
   updateStreak: () => void;
   setLastAnalyzedPhotoContext: (context: { name: string; summary: string; timestamp: string } | null) => void;
   setLastUploadedPhotoName: (name: string | null) => void;
+  addErrorLog: (message: string) => void;
+  deleteErrorLog: (id: string) => void;
+  toast: { message: string, type: 'error' | 'success' | 'info' } | null;
+  showToast: (message: string, type?: 'error' | 'success' | 'info') => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -111,6 +116,7 @@ export const useAppStore = create<AppState>()(
       lastUploadedPhotoName: null,
       activeTab: 'home',
       preloadedAIPhoto: null,
+      errorLogs: [],
 
       setUser: (user) => set({ user }),
       updateProfileDisplayName: (newName) => set((state) => ({ user: state.user ? { ...state.user, email: `${newName}@${state.user.email?.split('@')[1]}` } : null })),
@@ -219,12 +225,38 @@ export const useAppStore = create<AppState>()(
       },
       setLastAnalyzedPhotoContext: (context) => set({ lastAnalyzedPhotoContext: context }),
       setLastUploadedPhotoName: (name) => set({ lastUploadedPhotoName: name }),
+      addErrorLog: (message) => set((state) => ({ 
+        errorLogs: [{ id: Date.now().toString(), message, timestamp: new Date().toISOString() }, ...state.errorLogs].slice(0, 100) 
+      })),
+      deleteErrorLog: (id) => set((state) => ({ errorLogs: state.errorLogs.filter(log => log.id !== id) })),
+      toast: null,
+      showToast: (message, type = 'info') => {
+        set({ toast: { message, type } });
+        setTimeout(() => {
+          if (get().toast?.message === message) {
+            set({ toast: null });
+          }
+        }, 2200); // ~2 seconds as requested
+      },
       setActiveTab: (tab) => set({ activeTab: tab }),
       setPreloadedAIPhoto: (note) => set({ preloadedAIPhoto: note }),
     }),
     {
       name: 'neet-prep-storage',
       storage: createJSONStorage(() => localStorage),
+      // Point 1 Fix: Only persist essential state and limited history to avoid 5MB localStorage limit
+      partialize: (state) => {
+        const { chatHistory, results, leaderboard, errorLogs, ...rest } = state;
+        return {
+          ...rest,
+          // Only keep last 50 messages and 20 results in LOCAL storage to prevent crashes
+          // Full history is always available in Firebase Cloud.
+          chatHistory: (chatHistory || []).slice(-50),
+          results: (results || []).slice(-20),
+          errorLogs: (errorLogs || []).slice(-50),
+          leaderboard: [], // Don't persist leaderboard, always fetch fresh
+        };
+      },
     }
   )
 );

@@ -27,6 +27,7 @@ import StudyMaterialsScreen from './components/StudyMaterialsScreen';
 import SplashScreen from './components/SplashScreen';
 import InstallPwa from './components/InstallPwa';
 import { OfflineManager } from './components/OfflineManager';
+import { Toast } from './components/Toast';
 
 export default function App() {
   const { user, setUser, setFullState, theme, updateStreak, activeTab, setActiveTab, cleanupOldChatHistory } = useAppStore();
@@ -118,14 +119,27 @@ export default function App() {
 
           const cloudData = await dataSync.fetchUserData(firebaseUser.uid);
           if (cloudData) {
+            // Point 3 Fix: Merge Cloud Data with Local Data instead of overwriting
+            // This prevents losing data created while offline
+            const currentState = useAppStore.getState();
+            
+            const mergeById = (local: any[], cloud: any[]) => {
+              const cloudIds = new Set(cloud.map(i => i.id));
+              // Keep items that are only in local (newly created offline) + all cloud items
+              return [
+                ...local.filter(i => !cloudIds.has(i.id)),
+                ...cloud
+              ];
+            };
+
             setFullState({
-              results: cloudData.results || [],
-              notes: cloudData.notes || [],
-              starredQuestions: cloudData.starredQuestions || [],
-              mistakeVault: cloudData.mistakeVault || [],
-              chatHistory: cloudData.chatHistory || [],
-              streak: cloudData.profile?.streak ?? 0,
-              lastLoginDate: cloudData.profile?.lastLoginDate ?? null
+              results: mergeById(currentState.results, cloudData.results || []),
+              notes: mergeById(currentState.notes, cloudData.notes || []),
+              starredQuestions: mergeById(currentState.starredQuestions, cloudData.starredQuestions || []),
+              mistakeVault: mergeById(currentState.mistakeVault, cloudData.mistakeVault || []),
+              chatHistory: mergeById(currentState.chatHistory, cloudData.chatHistory || []),
+              streak: Math.max(currentState.streak, cloudData.profile?.streak ?? 0),
+              lastLoginDate: cloudData.profile?.lastLoginDate || currentState.lastLoginDate
             });
           }
         } catch (e) {
@@ -159,16 +173,52 @@ export default function App() {
     };
   }, []);
 
-  // Heartbeat Presence Effect
+  // Heartbeat Presence Effect (Optimized for Battery/Data)
   useEffect(() => {
     if (!user?.uid) return;
     
-    const interval = setInterval(async () => {
-        const { dataSync } = await import('./services/dataSync');
-        dataSync.updateUserPresence(user.uid, true);
-    }, 60000);
+    let interval: NodeJS.Timeout;
 
-    return () => clearInterval(interval);
+    const startHeartbeat = () => {
+      // Immediate update on focus
+      import('./services/dataSync').then(({ dataSync }) => {
+        dataSync.updateUserPresence(user.uid, true);
+      });
+      
+      interval = setInterval(async () => {
+        if (document.visibilityState === 'visible') {
+          const { dataSync } = await import('./services/dataSync');
+          dataSync.updateUserPresence(user.uid, true);
+        }
+      }, 90000); // Increased to 1.5 mins to save battery (still within 2min offline threshold)
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        startHeartbeat();
+      } else {
+        clearInterval(interval);
+        // Mark as offline in cloud after a small delay to allow for quick app switching
+        setTimeout(() => {
+           if (document.visibilityState !== 'visible') {
+             import('./services/dataSync').then(({ dataSync }) => {
+               dataSync.updateUserPresence(user.uid, false);
+             });
+           }
+        }, 3000);
+      }
+    };
+
+    if (document.visibilityState === 'visible') {
+      startHeartbeat();
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [user?.uid]);
 
   if (!user) {
@@ -191,6 +241,7 @@ export default function App() {
       
       <InstallPwa />
       <OfflineManager />
+      <Toast />
 
       <div className={cn(
           "flex-1 flex flex-col relative bg-inherit",
