@@ -253,8 +253,11 @@ async function callServerAI(path: string, body: any) {
     const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
     const fullPath = `${baseUrl}${path}`;
     
+    // Safety against trailing slash mismatch
+    const cleanPath = fullPath.replace(/([^:]\/)\/+/g, "$1");
+    
     const idToken = await auth.currentUser?.getIdToken();
-    const result = await fetch(fullPath, {
+    const result = await fetch(cleanPath, {
         method: 'POST',
         headers: { 
             'Content-Type': 'application/json', 
@@ -263,8 +266,16 @@ async function callServerAI(path: string, body: any) {
         body: JSON.stringify(body)
     });
     if (!result.ok) {
-        const err = await result.json();
-        throw new Error(err.error || 'AI Server error');
+        let errStr = 'AI Server error';
+        try {
+            const err = await result.json();
+            errStr = err.error || errStr;
+        } catch {
+            errStr = await result.text();
+            // If it returns an HTML block (like an Nginx 404 or Gateway timeout):
+            if(errStr.includes('<html')) errStr = 'failed to fetch (server gateway block)';
+        }
+        throw new Error(errStr);
     }
     return result.json();
 }
