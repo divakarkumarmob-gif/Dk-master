@@ -18,9 +18,22 @@ window.addEventListener('error', (event) => {
   errorMsg.style.wordBreak = 'break-all';
   errorMsg.innerHTML = `<strong>JS Error:</strong> ${event.message}<br/>at ${event.filename}:${event.lineno}:${event.colno}`;
   document.body.appendChild(errorMsg);
+
+  // Auto-remove after 5 seconds to prevent permanent lock
+  setTimeout(() => {
+    if (document.body.contains(errorMsg)) {
+      document.body.removeChild(errorMsg);
+    }
+  }, 5000);
 });
 
 window.addEventListener('unhandledrejection', (event) => {
+  const reasonStr = String(event.reason || '');
+  // Ignore benign Vite HMR or Firebase WebSocket errors so they don't break the UI
+  if (reasonStr.includes('WebSocket') || reasonStr.includes('websocket')) {
+    return;
+  }
+
   const errorMsg = document.createElement('div');
   errorMsg.style.position = 'fixed';
   errorMsg.style.top = '0';
@@ -34,6 +47,13 @@ window.addEventListener('unhandledrejection', (event) => {
   errorMsg.style.wordBreak = 'break-all';
   errorMsg.innerHTML = `<strong>Promise Error:</strong> ${event.reason}`;
   document.body.appendChild(errorMsg);
+  
+  // Auto-remove after 5 seconds to prevent permanent lock
+  setTimeout(() => {
+    if (document.body.contains(errorMsg)) {
+      document.body.removeChild(errorMsg);
+    }
+  }, 5000);
 });
 
 // Register Service Worker
