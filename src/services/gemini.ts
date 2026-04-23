@@ -172,7 +172,7 @@ class AIManager {
            let userFriendlyMsg = error.message || "AI link latency. Please check your data connection.";
            
            // Catch common Fetch/CORS errors
-           if (errorMsg === 'failed to fetch') userFriendlyMsg = "Network Error: Could not connect to the AI Server (CORS/Offline).";
+           if (errorMsg.includes('failed to fetch')) userFriendlyMsg = `Network Error (CORS/Offline). Info: ${error.message}`;
            // Override mapped known issues
            else if (errorMsg.includes('api key')) userFriendlyMsg = "AI Configuration Error: API key missing on server.";
            else if (errorMsg.includes('quota') || errorMsg.includes('limit') || errorMsg.includes('429')) userFriendlyMsg = "AI Quota exceeded or rate limit reached.";
@@ -257,27 +257,34 @@ async function callServerAI(path: string, body: any) {
     const cleanPath = fullPath.replace(/([^:]\/)\/+/g, "$1");
     
     const idToken = await auth.currentUser?.getIdToken();
-    const result = await fetch(cleanPath, {
-        method: 'POST',
-        headers: { 
-            'Content-Type': 'application/json', 
-            'Authorization': `Bearer ${idToken}` 
-        },
-        body: JSON.stringify(body)
-    });
-    if (!result.ok) {
-        let errStr = 'AI Server error';
-        try {
-            const err = await result.json();
-            errStr = err.error || errStr;
-        } catch {
-            errStr = await result.text();
-            // If it returns an HTML block (like an Nginx 404 or Gateway timeout):
-            if(errStr.includes('<html')) errStr = 'failed to fetch (server gateway block)';
+    try {
+        const result = await fetch(cleanPath, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${idToken}` 
+            },
+            body: JSON.stringify(body)
+        });
+        
+        if (!result.ok) {
+            let errStr = 'AI Server error';
+            try {
+                const err = await result.json();
+                errStr = err.error || errStr;
+            } catch {
+                errStr = await result.text();
+                if(errStr.includes('<html')) errStr = 'failed to fetch (server gateway block)';
+            }
+            throw new Error(errStr);
         }
-        throw new Error(errStr);
+        return await result.json();
+    } catch (e: any) {
+        if (e.name === 'TypeError' && e.message === 'Failed to fetch') {
+            throw new Error(`failed to fetch endpoint: ${cleanPath}`);
+        }
+        throw e;
     }
-    return result.json();
 }
 
 export const validateQuestion = (q: any): any => {
