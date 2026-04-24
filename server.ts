@@ -31,7 +31,6 @@ if (!admin.apps.length) {
 
 const db = getFirestore(undefined, process.env.VITE_FIREBASE_DATABASE_ID || undefined);
 const app = express();
-const PORT = Number(process.env.PORT) || 3000;
 
 // Log all requests for debugging production issues
 app.use((req, _res, next) => {
@@ -605,7 +604,7 @@ async function startServer() {
     app.use(vite.middlewares);
 
     // SPA Fallback for Development
-    app.get('*all', async (req, res, next) => {
+    app.get('(.*)', async (req, res, next) => {
       // If it's an API request that reached here, don't serve HTML
       if (req.url.startsWith('/api')) return next();
       
@@ -639,7 +638,8 @@ async function startServer() {
       }));
 
       // SPA Fallback: Serve index.html for all non-file, non-api routes
-      app.get('*all', (req, res, next) => {
+      // Using (.*) for Express 5 compatibility to catch all paths
+      app.get('(.*)', (req, res, next) => {
         if (req.url.startsWith('/api')) return next();
         
         // Block attempts to access source files directly in production
@@ -662,7 +662,7 @@ async function startServer() {
       const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' });
       app.use(vite.middlewares);
       
-      app.get('*all', async (req, res, next) => {
+      app.get('(.*)', async (req, res, next) => {
         if (req.url.startsWith('/api')) return next();
         const url = req.originalUrl;
         try {
@@ -676,6 +676,14 @@ async function startServer() {
       });
     }
   }
-  app.listen(PORT, '0.0.0.0', () => console.log(`Server running on http://localhost:${PORT}`));
+  
+  // Use PORT from environment (standard in AI Studio/Railway/Cloud Run)
+  // Fallback to 3000 for AI Studio environment compatibility
+  // Fallback to 8080 if specifically requested for local/other environments
+  const finalPort = Number(process.env.PORT) || 3000;
+  
+  app.listen(finalPort, '0.0.0.0', () => {
+    console.log(`[SERVER] Running on http://0.0.0.0:${finalPort}`);
+  });
 }
 startServer();
