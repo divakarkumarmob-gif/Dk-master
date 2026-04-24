@@ -33,6 +33,12 @@ const db = getFirestore(undefined, process.env.VITE_FIREBASE_DATABASE_ID || unde
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Log all requests for debugging production issues
+app.use((req, _res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - Referer: ${req.headers.referer || 'none'}`);
+  next();
+});
+
 // Firebase Health Check Helper
 const isFirebaseReady = (): boolean => {
   return admin.apps.length > 0;
@@ -73,6 +79,15 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+// Health Check for Railway/Cloud Run
+app.get('/api/health', (_req, res) => {
+  res.status(200).json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    firebase: isFirebaseReady() ? 'connected' : 'not_ready'
+  });
+});
 
 // Utilities
 const logger = {
@@ -611,10 +626,40 @@ async function startServer() {
     });
   } else {
     console.log('[SERVER] Running in PRODUCTION mode');
-    const distPath = path.join(process.cwd(), 'dist');
+    const distPath = path.resolve('dist');
+    console.log('[SERVER] distPath resolved to:', distPath);
+    
     if (await fs.pathExists(distPath)) {
-      app.use(express.static(distPath));
-      app.get('*all', (req, res) => res.sendFile(path.join(distPath, 'index.html')));
+      console.log('[SERVER] dist directory found. Contents:', await fs.readdir(distPath));
+      app.use(express.static(distPath, {
+        index: false,
+        extensions: ['html', 'htm'],
+        cacheControl: true,
+        maxAge: '1d'
+      }));
+
+      // SPA Fallback: Serve index.html for all non-file, non-api routes
+      app.get('*', (req, res, next) => {
+        // Skip API routes
+        if (req.url.startsWith('/api')) return next();
+        
+        // Skip common asset extensions to avoid serving index.html for missing assets
+        if (req.url.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|json|woff2|woff|ttf|map|webmanifest|tsx|ts)$/)) {
+           console.warn(`[SERVER] File NOT FOUND (Terminating): ${req.url} - Referer: ${req.headers.referer}`);
+           return res.status(404).json({ error: 'Asset not found', path: req.url });
+        }
+
+        console.log(`[SERVER] Serving index.html for SPA route: ${req.url}`);
+        const indexPath = path.join(distPath, 'index.html');
+        res.sendFile(indexPath, (err) => {
+          if (err) {
+            console.error(`[SERVER] CRITICAL: Failed to send index.html: ${err.message}`);
+            if (!res.headersSent) {
+              res.status(500).send('Error loading application shell');
+            }
+          }
+        });
+      });
     } else {
       console.error('[SERVER] CRITICAL: "dist" directory not found in production mode!');
       // Fallback to Vite even in production mode if dist is missing (emergency recovery for AI Studio)
