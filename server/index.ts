@@ -19,20 +19,28 @@ app.get("/api/health", (req, res) => {
 
 async function setupServer() {
   const distPath = path.resolve(process.cwd(), "client/dist");
+  console.log(`Checking for static files at: ${distPath}`);
 
   if (await fs.pathExists(distPath)) {
+    console.log("Static files found, enabling frontend serving.");
     app.use(express.static(distPath));
 
-    app.get("*", (req, res) => {
+    app.get("(.*)", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
+  } else {
+    console.warn("WARNING: client/dist directory NOT found. Only API routes will be available.");
   }
 
-  const PORT = process.env.PORT || 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server is LIVE on port ${PORT}`);
+    console.log(`Health check available at: /api/health`);
   });
 }
 
-setupServer();
+setupServer().catch(err => {
+  console.error("Critical server startup error:", err);
+  process.exit(1);
+});
