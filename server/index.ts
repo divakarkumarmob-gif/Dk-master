@@ -11,6 +11,7 @@ import cors from 'cors';
 import { Redis } from '@upstash/redis';
 import stringSimilarity from 'string-similarity';
 import ytSearch from 'yt-search';
+import apiRouter from './routes/api.js';
 
 // Initialize Firebase Admin
 if (!admin.apps.length) {
@@ -90,13 +91,12 @@ app.use(cors({
 
 app.use(express.json());
 
+// API Routes
+app.use('/api', apiRouter);
+
 // Health Check for Railway/Cloud Run
 app.get('/', (req, res) => {
   res.send('Backend running 🚀');
-});
-
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok' });
 });
 
 // Utilities
