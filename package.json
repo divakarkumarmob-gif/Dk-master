@@ -7,11 +7,11 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "dev": "NODE_ENV=development tsx server.ts",
-    "start": "NODE_ENV=production tsx server.ts",
-    "build": "vite build && echo 'Build complete'",
-    "preview": "vite preview",
-    "lint": "tsc --noEmit"
+    "dev": "NODE_ENV=development tsx server/index.ts",
+    "start": "NODE_ENV=production tsx server/index.ts",
+    "build": "vite build client && echo 'Build complete'",
+    "preview": "vite preview client",
+    "lint": "tsc --noEmit -p client/tsconfig.json"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.0",

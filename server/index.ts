@@ -602,6 +602,64 @@ app.post('/api/export', authMiddleware, adminMiddleware, async (req, res) => {
 async function startServer() {
   console.log('[SERVER] Starting with NODE_ENV:', process.env.NODE_ENV);
   
+  const isDev = process.env.NODE_ENV !== 'production';
+
+  if (isDev) {
+    console.log('[SERVER] Running in DEVELOPMENT mode with Vite middleware');
+    const vite = await createViteServer({ 
+      server: { middlewareMode: true }, 
+      appType: 'spa',
+      root: path.resolve(process.cwd(), 'client')
+    });
+    
+    app.use(vite.middlewares);
+
+    app.use(async (req, res, next) => {
+      const isAsset = req.url.match(/\.(js|css|tsx|ts|jsx|png|jpg|jpeg|gif|svg|ico|json|woff2|woff|ttf|map|webmanifest)(\?.*)?$/);
+      if (req.url.startsWith('/api') || isAsset || req.method !== 'GET') {
+          return next();
+      }
+      
+      const url = req.originalUrl;
+      try {
+        const indexPath = path.join(process.cwd(), 'client/index.html');
+        if (await fs.pathExists(indexPath)) {
+          let template = await fs.readFile(indexPath, 'utf-8');
+          template = await vite.transformIndexHtml(url, template);
+          res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+        } else {
+          next();
+        }
+      } catch (e) {
+        vite.ssrFixStacktrace(e as Error);
+        next(e);
+      }
+    });
+  } else {
+    console.log('[SERVER] Running in PRODUCTION mode');
+    const distPath = path.resolve('client/dist');
+    console.log('[SERVER] distPath resolved to:', distPath);
+    
+    if (await fs.pathExists(distPath)) {
+      app.use(express.static(distPath, { index: false }));
+
+      app.use((req, res, next) => {
+        if (req.url.startsWith('/api') || req.method !== 'GET') return next();
+        const isAsset = req.url.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|json|woff2|woff|ttf|map|webmanifest)(\?.*)?$/);
+        if (isAsset) return next();
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    } else {
+      console.warn('[SERVER] "client/dist" not found. Falling back to recovery mode.');
+      const vite = await createViteServer({ 
+        server: { middlewareMode: true }, 
+        appType: 'spa',
+        root: path.resolve(process.cwd(), 'client')
+      });
+      app.use(vite.middlewares);
+    }
+  }
+
   // Use PORT from environment (standard in AI Studio/Railway/Cloud Run)
   const PORT = process.env.PORT;
 
