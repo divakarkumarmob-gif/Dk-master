@@ -7,6 +7,7 @@ export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   
   return {
+    root: path.resolve(__dirname),
     base: '/',
     plugins: [
       react(), 
