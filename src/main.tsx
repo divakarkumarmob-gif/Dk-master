@@ -66,6 +66,19 @@ if ('serviceWorker' in navigator && import.meta.env.PROD && window.location.prot
 }
 
 const rootElement = document.getElementById('root');
+
+// Safety net: Hide index.html loader if React fails to mount quickly or mutation observer missed it
+setTimeout(() => {
+  const loader = document.getElementById('loading-screen');
+  if (loader && loader.style.display !== 'none') {
+    const root = document.getElementById('root');
+    if (root && root.children.length === 0) {
+      console.warn('React mount timeout - force hiding loader to show any errors');
+    }
+    loader.style.display = 'none';
+  }
+}, 3000);
+
 if (!rootElement) {
   alert('Critical: Root element not found!');
 } else {

@@ -75,6 +75,15 @@
         }
       });
       loaderObserver.observe(document.getElementById('root'), { childList: true });
+
+      // Safety timeout: dismiss loader after 4s even if React hasn't finished mounting
+      setTimeout(() => {
+        const loader = document.getElementById('loading-screen');
+        if (loader && loader.style.display !== 'none') {
+          console.warn('React mount timeout: forcing loader dismissal');
+          loader.style.display = 'none';
+        }
+      }, 4000);
     </script>
     <script>
       if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {

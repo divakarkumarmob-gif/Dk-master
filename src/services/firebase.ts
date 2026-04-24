@@ -35,9 +35,9 @@ const app = initializeApp(isConfigValid ? firebaseConfig : {
     appId: "missing"
 });
 
-// Use persistentLocalCache for offline capabilities across multiple tabs
+// Use persistentLocalCache for offline capabilities
 export const db = initializeFirestore(app, {
-    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    localCache: persistentLocalCache({}), 
 }, databaseId && databaseId !== 'undefined' ? databaseId : undefined);
 
 export const storage = getStorage(app);

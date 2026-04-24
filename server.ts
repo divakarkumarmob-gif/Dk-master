@@ -33,8 +33,19 @@ const db = getFirestore(undefined, process.env.VITE_FIREBASE_DATABASE_ID || unde
 const app = express();
 
 // Log all requests for debugging production issues
-app.use((req, _res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - Referer: ${req.headers.referer || 'none'}`);
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const isAsset = req.url.match(/\.(js|css|tsx|ts|jsx|png|jpg|jpeg|gif|svg|ico|json|woff2|woff|ttf|map|webmanifest)$/);
+    const isDev = process.env.NODE_ENV !== 'production';
+    
+    // Only log errors or important navigations, or log all in production if needed
+    // In dev, we skip logging successful asset loads to reduce noise
+    if (!isDev || !isAsset || res.statusCode >= 400) {
+      console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - Status: ${res.statusCode} - ${duration}ms - Referer: ${req.headers.referer || 'none'}`);
+    }
+  });
   next();
 });
 
@@ -604,7 +615,7 @@ async function startServer() {
     app.use(vite.middlewares);
 
     // SPA Fallback for Development
-    app.get('(.*)', async (req, res, next) => {
+    app.get('*all', async (req, res, next) => {
       // If it's an API request that reached here, don't serve HTML
       if (req.url.startsWith('/api')) return next();
       
@@ -638,8 +649,7 @@ async function startServer() {
       }));
 
       // SPA Fallback: Serve index.html for all non-file, non-api routes
-      // Using (.*) for Express 5 compatibility to catch all paths
-      app.get('(.*)', (req, res, next) => {
+      app.get('*all', (req, res, next) => {
         if (req.url.startsWith('/api')) return next();
         
         // Block attempts to access source files directly in production
@@ -662,7 +672,7 @@ async function startServer() {
       const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' });
       app.use(vite.middlewares);
       
-      app.get('(.*)', async (req, res, next) => {
+      app.get('*all', async (req, res, next) => {
         if (req.url.startsWith('/api')) return next();
         const url = req.originalUrl;
         try {
