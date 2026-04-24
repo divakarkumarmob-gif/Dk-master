@@ -90,7 +90,7 @@ export default function App() {
     // Force Home tab on app launch as per user request
     setActiveTab('home');
     
-    const timer = setTimeout(() => setShowSplash(false), 2000);
+    const timer = setTimeout(() => setShowSplash(false), 1000);
     return () => clearTimeout(timer);
   }, []);
 

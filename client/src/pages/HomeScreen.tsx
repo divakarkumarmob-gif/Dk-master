@@ -347,11 +347,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
 
       <VoiceAI />
       
-      <VideoModal 
-        videoId={activeVideo?.id || null} 
-        title={activeVideo?.title} 
-        onClose={() => setActiveVideo(null)} 
-      />
+      <AnimatePresence>
+        {activeVideo && (
+          <VideoModal 
+            videoId={activeVideo.id} 
+            title={activeVideo.title} 
+            onClose={() => setActiveVideo(null)} 
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
