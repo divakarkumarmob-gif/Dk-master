@@ -31,7 +31,7 @@ if (!admin.apps.length) {
 
 const db = getFirestore(undefined, process.env.VITE_FIREBASE_DATABASE_ID || undefined);
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 // Log all requests for debugging production issues
 app.use((req, _res, next) => {
@@ -639,26 +639,21 @@ async function startServer() {
       }));
 
       // SPA Fallback: Serve index.html for all non-file, non-api routes
-      app.get('*', (req, res, next) => {
-        // Skip API routes
+      app.get('*all', (req, res, next) => {
         if (req.url.startsWith('/api')) return next();
         
-        // Skip common asset extensions to avoid serving index.html for missing assets
-        if (req.url.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|json|woff2|woff|ttf|map|webmanifest|tsx|ts)$/)) {
-           console.warn(`[SERVER] File NOT FOUND (Terminating): ${req.url} - Referer: ${req.headers.referer}`);
-           return res.status(404).json({ error: 'Asset not found', path: req.url });
+        // Block attempts to access source files directly in production
+        if (req.url.match(/\.(tsx|ts|jsx)$/)) {
+           console.warn(`[SERVER] Security Block: Attempted access to source file: ${req.url}`);
+           return res.status(403).json({ error: 'Source file access prohibited' });
         }
 
-        console.log(`[SERVER] Serving index.html for SPA route: ${req.url}`);
-        const indexPath = path.join(distPath, 'index.html');
-        res.sendFile(indexPath, (err) => {
-          if (err) {
-            console.error(`[SERVER] CRITICAL: Failed to send index.html: ${err.message}`);
-            if (!res.headersSent) {
-              res.status(500).send('Error loading application shell');
-            }
-          }
-        });
+        // Standard asset 404
+        if (req.url.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|json|woff2|woff|ttf|map|webmanifest)$/)) {
+           return res.status(404).send('Asset not found');
+        }
+
+        res.sendFile(path.join(distPath, 'index.html'));
       });
     } else {
       console.error('[SERVER] CRITICAL: "dist" directory not found in production mode!');
