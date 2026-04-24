@@ -56,8 +56,10 @@ app.use(cors({
     // Treat no origin as allowed (e.g. mobile apps, curl)
     if (!origin) return callback(null, true);
     
-    // Always allow localhost and specific domains
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+    // Always allow localhost, vercel, and railway domains
+    if (allowedOrigins.includes(origin) || origin.endsWith('.up.railway.app')) {
+      return callback(null, true);
+    }
     
     // Always allow any Google Cloud Run (.run.app) or App Engine (.app) origin 
     // regardless of NODE_ENV so that deployments work seamlessly
