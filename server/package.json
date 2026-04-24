@@ -1,7 +1,11 @@
 {
   "name": "server",
-  "main": "index.ts",
   "scripts": {
     "start": "tsx index.ts"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "tsx": "^4.0.0"
   }
 }
