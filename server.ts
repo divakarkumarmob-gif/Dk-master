@@ -91,12 +91,12 @@ app.use(cors({
 app.use(express.json());
 
 // Health Check for Railway/Cloud Run
-app.get('/api/health', (_req, res) => {
-  res.status(200).json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    firebase: isFirebaseReady() ? 'connected' : 'not_ready'
-  });
+app.get('/', (req, res) => {
+  res.send('Backend running 🚀');
+});
+
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
 });
 
 // Utilities
@@ -602,102 +602,7 @@ app.post('/api/export', authMiddleware, adminMiddleware, async (req, res) => {
 async function startServer() {
   console.log('[SERVER] Starting with NODE_ENV:', process.env.NODE_ENV);
   
-  const isDev = process.env.NODE_ENV !== 'production';
-
-  if (isDev) {
-    console.log('[SERVER] Running in DEVELOPMENT mode with Vite middleware');
-    const vite = await createViteServer({ 
-      server: { middlewareMode: true }, 
-      appType: 'spa' 
-    });
-    
-    // Middleware to catch static assets
-    app.use(vite.middlewares);
-
-    // SPA Fallback for Development
-    app.use(async (req, res, next) => {
-      // If it's an API request, an asset, or a source file, don't serve HTML
-      // Handle optional query parameters in asset requests (e.g. main.js?v=1.0)
-      const isAsset = req.url.match(/\.(js|css|tsx|ts|jsx|png|jpg|jpeg|gif|svg|ico|json|woff2|woff|ttf|map|webmanifest)(\?.*)?$/);
-      if (req.url.startsWith('/api') || isAsset || req.method !== 'GET') {
-          return next();
-      }
-      
-      const url = req.originalUrl;
-      try {
-        const indexPath = path.join(process.cwd(), 'index.html');
-        if (await fs.pathExists(indexPath)) {
-          let template = await fs.readFile(indexPath, 'utf-8');
-          template = await vite.transformIndexHtml(url, template);
-          res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
-        } else {
-          next();
-        }
-      } catch (e) {
-        vite.ssrFixStacktrace(e as Error);
-        next(e);
-      }
-    });
-  } else {
-    console.log('[SERVER] Running in PRODUCTION mode');
-    const distPath = path.resolve('dist');
-    console.log('[SERVER] distPath resolved to:', distPath);
-    
-    if (await fs.pathExists(distPath)) {
-      console.log('[SERVER] dist directory found. Contents:', await fs.readdir(distPath));
-      app.use(express.static(distPath, {
-        index: false,
-        extensions: ['html', 'htm'],
-        cacheControl: true,
-        maxAge: '1d'
-      }));
-
-      // SPA Fallback: Serve index.html for all non-file, non-api routes
-      app.use((req, res, next) => {
-        if (req.url.startsWith('/api') || req.method !== 'GET') return next();
-        
-        // Block attempts to access source files directly in production
-        if (req.url.match(/\.(tsx|ts|jsx)$/)) {
-           console.warn(`[SERVER] Security Block: Attempted access to source file: ${req.url}`);
-           return res.status(403).json({ error: 'Source file access prohibited' });
-        }
-
-        // Standard asset 404
-        if (req.url.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|json|woff2|woff|ttf|map|webmanifest)(\?.*)?$/)) {
-           return next();
-        }
-
-        res.sendFile(path.join(distPath, 'index.html'));
-      });
-    } else {
-      console.error('[SERVER] CRITICAL: "dist" directory not found in production mode!');
-      // Fallback to Vite even in production mode if dist is missing (emergency recovery for AI Studio)
-      console.log('[SERVER] Falling back to Vite middleware for recovery...');
-      const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' });
-      app.use(vite.middlewares);
-      
-      app.use(async (req, res, next) => {
-        const isAsset = req.url.match(/\.(js|css|tsx|ts|jsx|png|jpg|jpeg|gif|svg|ico|json|woff2|woff|ttf|map|webmanifest)(\?.*)?$/);
-        if (req.url.startsWith('/api') || isAsset || req.method !== 'GET') return next();
-        const url = req.originalUrl;
-        try {
-          const indexPath = path.join(process.cwd(), 'index.html');
-          if (await fs.pathExists(indexPath)) {
-            let template = await fs.readFile(indexPath, 'utf-8');
-            template = await vite.transformIndexHtml(url, template);
-            res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
-          } else {
-            next();
-          }
-        } catch (e) {
-          next(e);
-        }
-      });
-    }
-  }
-  
   // Use PORT from environment (standard in AI Studio/Railway/Cloud Run)
-  // Fallback to 3000 for AI Studio environment compatibility
   const PORT = process.env.PORT;
 
   app.listen(PORT, '0.0.0.0', () => {
