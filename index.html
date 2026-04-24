@@ -2,6 +2,24 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      window.addEventListener('error', function(event) {
+        var errorDiv = document.createElement('div');
+        errorDiv.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:red;color:white;padding:20px;z-index:9999999;font-family:monospace;overflow:auto;word-wrap:break-word;';
+        errorDiv.innerHTML = '<h3>React Fatal Error</h3><p>' + escapeHtml(event.message) + '</p><pre>' + escapeHtml(event.error ? event.error.stack : '') + '</pre>';
+        document.body.appendChild(errorDiv);
+      });
+      window.addEventListener('unhandledrejection', function(event) {
+        var errorDiv = document.createElement('div');
+        errorDiv.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:purple;color:white;padding:20px;z-index:9999999;font-family:monospace;overflow:auto;word-wrap:break-word;';
+        errorDiv.innerHTML = '<h3>Unhandled Promise</h3><p>' + escapeHtml(event.reason) + '</p><pre>' + escapeHtml(event.reason && event.reason.stack ? event.reason.stack : '') + '</pre>';
+        document.body.appendChild(errorDiv);
+      });
+      function escapeHtml(unsafe) {
+          if (!unsafe) return '';
+          return unsafe.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+      }
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F5F5F0" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0A0A0A" />
