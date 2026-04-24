@@ -615,9 +615,13 @@ async function startServer() {
     app.use(vite.middlewares);
 
     // SPA Fallback for Development
-    app.get('*all', async (req, res, next) => {
-      // If it's an API request that reached here, don't serve HTML
-      if (req.url.startsWith('/api')) return next();
+    app.use(async (req, res, next) => {
+      // If it's an API request, an asset, or a source file, don't serve HTML
+      // Handle optional query parameters in asset requests (e.g. main.js?v=1.0)
+      const isAsset = req.url.match(/\.(js|css|tsx|ts|jsx|png|jpg|jpeg|gif|svg|ico|json|woff2|woff|ttf|map|webmanifest)(\?.*)?$/);
+      if (req.url.startsWith('/api') || isAsset || req.method !== 'GET') {
+          return next();
+      }
       
       const url = req.originalUrl;
       try {
@@ -627,7 +631,7 @@ async function startServer() {
           template = await vite.transformIndexHtml(url, template);
           res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
         } else {
-          res.status(404).send('index.html not found');
+          next();
         }
       } catch (e) {
         vite.ssrFixStacktrace(e as Error);
@@ -649,8 +653,8 @@ async function startServer() {
       }));
 
       // SPA Fallback: Serve index.html for all non-file, non-api routes
-      app.get('*all', (req, res, next) => {
-        if (req.url.startsWith('/api')) return next();
+      app.use((req, res, next) => {
+        if (req.url.startsWith('/api') || req.method !== 'GET') return next();
         
         // Block attempts to access source files directly in production
         if (req.url.match(/\.(tsx|ts|jsx)$/)) {
@@ -659,8 +663,8 @@ async function startServer() {
         }
 
         // Standard asset 404
-        if (req.url.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|json|woff2|woff|ttf|map|webmanifest)$/)) {
-           return res.status(404).send('Asset not found');
+        if (req.url.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|json|woff2|woff|ttf|map|webmanifest)(\?.*)?$/)) {
+           return next();
         }
 
         res.sendFile(path.join(distPath, 'index.html'));
@@ -672,14 +676,19 @@ async function startServer() {
       const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' });
       app.use(vite.middlewares);
       
-      app.get('*all', async (req, res, next) => {
-        if (req.url.startsWith('/api')) return next();
+      app.use(async (req, res, next) => {
+        const isAsset = req.url.match(/\.(js|css|tsx|ts|jsx|png|jpg|jpeg|gif|svg|ico|json|woff2|woff|ttf|map|webmanifest)(\?.*)?$/);
+        if (req.url.startsWith('/api') || isAsset || req.method !== 'GET') return next();
         const url = req.originalUrl;
         try {
           const indexPath = path.join(process.cwd(), 'index.html');
-          let template = await fs.readFile(indexPath, 'utf-8');
-          template = await vite.transformIndexHtml(url, template);
-          res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+          if (await fs.pathExists(indexPath)) {
+            let template = await fs.readFile(indexPath, 'utf-8');
+            template = await vite.transformIndexHtml(url, template);
+            res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+          } else {
+            next();
+          }
         } catch (e) {
           next(e);
         }
@@ -689,11 +698,10 @@ async function startServer() {
   
   // Use PORT from environment (standard in AI Studio/Railway/Cloud Run)
   // Fallback to 3000 for AI Studio environment compatibility
-  // Fallback to 8080 if specifically requested for local/other environments
-  const finalPort = Number(process.env.PORT) || 3000;
-  
-  app.listen(finalPort, '0.0.0.0', () => {
-    console.log(`[SERVER] Running on http://0.0.0.0:${finalPort}`);
+  const PORT = process.env.PORT;
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on port ${PORT}`);
   });
 }
 startServer();

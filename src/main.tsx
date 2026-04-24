@@ -66,6 +66,11 @@ if ('serviceWorker' in navigator && import.meta.env.PROD && window.location.prot
 }
 
 const rootElement = document.getElementById('root');
+const statusLine = document.getElementById('status-line');
+
+if (statusLine) {
+  statusLine.innerText = 'Initializing Neural Modules...';
+}
 
 // Safety net: Hide index.html loader if React fails to mount quickly or mutation observer missed it
 setTimeout(() => {
@@ -74,17 +79,24 @@ setTimeout(() => {
     const root = document.getElementById('root');
     if (root && root.children.length === 0) {
       console.warn('React mount timeout - force hiding loader to show any errors');
+      if (statusLine) statusLine.innerText = 'Timed out. Checking core systems...';
     }
     loader.style.display = 'none';
   }
-}, 3000);
+}, 3500);
 
 if (!rootElement) {
   alert('Critical: Root element not found!');
 } else {
-  createRoot(rootElement).render(
-    <StrictMode>
-      <App />
-    </StrictMode>,
-  );
+  try {
+    if (statusLine) statusLine.innerText = 'Syncing Atmosphere...';
+    createRoot(rootElement).render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    );
+  } catch (err) {
+    console.error('Fatal React Render Error:', err);
+    if (statusLine) statusLine.innerText = 'Re-sync failed. Check Neural console.';
+  }
 }
