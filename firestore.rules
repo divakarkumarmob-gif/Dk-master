@@ -25,14 +25,14 @@ service cloud.firestore {
 
     // --- Validation Blueprints ---
     function isValidUser(data) {
-      return data.keys().hasAll(['isOnline', 'lastSeen']) &&
+      return data.keys().hasAll(['isOnline', 'lastActive']) &&
              data.isOnline is bool &&
-             data.lastSeen is string &&
-             data.lastSeen.size() <= 128;
+             data.lastActive is string &&
+             data.lastActive.size() <= 128;
     }
 
     function isPresenceUpdate() {
-      return incoming().diff(existing()).affectedKeys().hasOnly(['isOnline', 'activeChatId', 'lastSeen']);
+      return incoming().diff(existing()).affectedKeys().hasOnly(['isOnline', 'activeChatId', 'lastActive']);
     }
 
     // --- Debug/Connection Test ---

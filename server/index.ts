@@ -37,7 +37,7 @@ async function setupServer() {
     console.log(`Static files found at ${activeDistPath}, enabling frontend serving.`);
     app.use(express.static(activeDistPath));
 
-    app.get("*", (req, res) => {
+    app.get("*all", (req, res) => {
       res.sendFile(path.join(activeDistPath, "index.html"));
     });
   } else {

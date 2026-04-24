@@ -6,6 +6,8 @@
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
+        "isOnline": { "type": "boolean" },
+        "lastActive": { "type": "string", "format": "date-time" },
         "dailyMessageCount": { "type": "integer" },
         "lastMessageDate": { "type": "string", "format": "date" },
         "extraMessageLimit": { "type": "integer" }
