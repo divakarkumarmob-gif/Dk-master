@@ -2,18 +2,67 @@
 
 @theme {
   --color-orange-accent: #ff6b00;
-  --color-text-muted: #666666;
+  --color-text-main: #0f172a;
+  --color-text-muted: #475569;
+  --color-olive-primary: #1e293b;
+  --color-olive-dark: #0f172a;
+  --color-line: #f1f5f9;
+  --color-background-light: #f8fafc;
+  --color-background-dark: #020617;
+
+  --font-display: ui-sans-serif, system-ui, sans-serif;
+  --font-body: ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
   margin: 0;
   padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  background-color: #f8f9fa;
-  color: #1a1a1a;
+  font-family: var(--font-body);
+  background-color: #ffffff;
+  color: #000000;
+  -webkit-tap-highlight-color: transparent;
+  @apply transition-colors duration-300;
 }
 
-.dark {
-  background-color: #1a1a1a;
-  color: #f8f9fa;
+.dark body {
+  background-color: #050a18; /* Deep Navy Blue */
+  color: #ffffff;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+/* Glassmorphism Classes */
+.glass {
+  @apply bg-white/70 dark:bg-black/70 backdrop-blur-md border border-white/20 dark:border-white/10;
+}
+
+.quote-box {
+  @apply p-8 bg-slate-50 dark:bg-slate-900 rounded-[40px] border border-slate-100 dark:border-white/10 relative overflow-hidden;
+}
+
+.quote-box::after {
+  content: '"';
+  @apply absolute -bottom-10 -right-4 text-[180px] font-black text-black/[0.03] dark:text-white/[0.03] italic;
+}
+
+/* Auth Inputs */
+input::placeholder {
+  @apply text-slate-400 dark:text-slate-600;
 }

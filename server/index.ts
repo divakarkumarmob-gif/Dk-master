@@ -19,9 +19,9 @@ app.get("/api/health", (req, res) => {
 
 async function setupServer() {
   const possiblePaths = [
+    path.resolve(process.cwd(), "dist"),            // Root is / (new location)
     path.resolve(process.cwd(), "client/dist"),     // Root is /
     path.resolve(process.cwd(), "../client/dist"),  // Root is /server
-    path.resolve(process.cwd(), "dist"),            // dist is inside the root (e.g. copied to /server/dist)
   ];
 
   let activeDistPath = "";

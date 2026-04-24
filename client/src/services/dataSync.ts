@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, getDocs, collection, deleteDoc } from 'firebase/firestore';
 import { db } from './firebase';
 
 export const dataSync = {
@@ -22,6 +22,52 @@ export const dataSync = {
     } catch (e) {
       console.error('Fetch data failed:', e);
       return null;
+    }
+  },
+
+  async getDeletedChatArchives() {
+    try {
+      const snap = await getDocs(collection(db, 'chat_archives'));
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (e) {
+      console.error('Fetch archives failed:', e);
+      return [];
+    }
+  },
+
+  async deleteChatArchive(id: string) {
+    try {
+      await deleteDoc(doc(db, 'chat_archives', id));
+    } catch (e) {
+      console.error('Delete archive failed:', e);
+    }
+  },
+
+  async getBlockedUsers() {
+    try {
+      const snap = await getDocs(collection(db, 'users'));
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (e) {
+      console.error('Fetch blocked failed:', e);
+      return [];
+    }
+  },
+
+  async getNameAlerts() {
+    try {
+      const snap = await getDocs(collection(db, 'name_alerts'));
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (e) {
+      console.error('Fetch name alerts failed:', e);
+      return [];
+    }
+  },
+
+  async updateUserModeration(uid: string, moderation: any) {
+    try {
+      await updateDoc(doc(db, 'users', uid), { moderation });
+    } catch (e) {
+      console.error('Update moderation failed:', e);
     }
   }
 };

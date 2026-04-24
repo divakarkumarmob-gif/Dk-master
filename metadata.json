@@ -1,6 +1,6 @@
 {
   "name": "NEET Prep",
-  "description": "Comprehensive NEET preparation platform for students with AI-powered doubt solving and community learning.",
+  "description": "Tactical Study Suite with AI neural sync, restored draggable DK Live assistant, high-contrast UI, and secure peer-to-peer chat system.",
   "requestFramePermissions": ["microphone"],
   "majorCapabilities": []
 }

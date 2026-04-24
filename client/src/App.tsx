@@ -28,6 +28,7 @@ import SplashScreen from './components/SplashScreen';
 import InstallPwa from './components/InstallPwa';
 import { OfflineManager } from './components/OfflineManager';
 import { Toast } from './components/Toast';
+import { DKLive } from './components/DKLive';
 
 export default function App() {
   const { user, setUser, setFullState, theme, updateStreak, activeTab, setActiveTab, cleanupOldChatHistory } = useAppStore();
@@ -82,6 +83,15 @@ export default function App() {
         window.removeEventListener('popstate', handlePopState);
     };
   }, [activeTest]);
+
+  useEffect(() => {
+    // Sync theme with HTML element for Tailwind dark mode
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
@@ -242,6 +252,8 @@ export default function App() {
       <InstallPwa />
       <OfflineManager />
       <Toast />
+      
+      {activeTab === 'home' && <DKLive />}
 
       <div className={cn(
           "flex-1 flex flex-col relative bg-inherit",
@@ -251,7 +263,7 @@ export default function App() {
         <main className={cn(
             "flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 flex flex-col",
             (activeTab === 'chat' || activeTab === 'admin') ? "overflow-hidden" : "",
-            "pt-2 pb-[72px]"
+            "pt-6 pb-[80px]"
         )}>
           <AnimatePresence mode="wait">
             {activeTab === 'home' && (
@@ -278,7 +290,7 @@ export default function App() {
           </AnimatePresence>
         </main>
 
-        <nav className="fixed bottom-0 left-0 right-0 h-[64px] bg-white border-t border-black/5 flex justify-around items-center px-4 pb-2 z-50 ">
+        <nav className="fixed bottom-0 left-0 right-0 h-[64px] bg-white dark:bg-slate-950 border-t border-black/5 dark:border-white/20 flex justify-around items-center px-4 pb-2 z-50">
           <TabButton 
             active={activeTab === 'home'} 
             onClick={() => setActiveTab('home')} 
@@ -320,18 +332,28 @@ function TabButton({ active, onClick, icon, label }: { active: boolean, onClick:
     <motion.button
       onClick={onClick}
       className={cn(
-        "flex flex-col items-center gap-1 transition-all duration-300",
-        active ? "text-orange-accent" : "text-text-muted"
+        "flex flex-col items-center gap-1 transition-all duration-300 relative",
+        active ? "text-orange-accent" : "text-black dark:text-white"
       )}
-      whileTap={{ scale: 0.95 }}
+      whileTap={{ scale: 0.9 }}
     >
       <div className={cn(
-        "w-6 h-6 rounded-md flex items-center justify-center transition-opacity",
-        active ? "bg-orange-accent/20" : "bg-text-muted/10 opacity-20"
+        "p-1.5 rounded-xl transition-all",
+        active ? "bg-orange-accent/10 sm:bg-orange-accent/5" : "bg-transparent"
       )}>
         {icon}
       </div>
-      <span className="text-[10px] font-bold uppercase tracking-tight">{label}</span>
+      <span className={cn(
+        "text-[9px] font-black uppercase tracking-tight transition-all",
+        active ? "opacity-100" : "opacity-90"
+      )}>{label}</span>
+      
+      {active && (
+        <motion.div 
+            layoutId="nav-glow"
+            className="absolute -top-[12px] w-8 h-[2px] bg-orange-accent rounded-full shadow-[0_0_8px_rgba(255,107,0,0.5)]" 
+        />
+      )}
     </motion.button>
   );
 }

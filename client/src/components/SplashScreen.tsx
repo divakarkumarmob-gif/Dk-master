@@ -27,7 +27,7 @@ const SplashScreen: React.FC = () => {
         <h1 className="text-2xl font-black text-white uppercase tracking-[0.2em] mb-2">NEET PREP</h1>
         <div className="flex items-center justify-center gap-2 text-orange-accent">
           <Sparkles size={14} className="animate-pulse" />
-          <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Initializing Neural Link</span>
+          <span className="text-[10px] font-black uppercase tracking-widest">Initializing Neural Link</span>
         </div>
       </motion.div>
 

@@ -14,7 +14,7 @@ export default defineConfig(({mode}) => {
       tailwindcss()
     ],
     build: {
-      outDir: 'dist',
+      outDir: '../dist',
       assetsDir: 'assets',
       emptyOutDir: true,
       sourcemap: false,

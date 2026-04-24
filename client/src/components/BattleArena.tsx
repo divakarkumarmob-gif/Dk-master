@@ -14,16 +14,16 @@ export const BattleArena: React.FC = () => {
 
                 <div className="space-y-1">
                     <h3 className="text-xl font-black uppercase tracking-tight">PvP Battle Arena</h3>
-                    <p className="text-[10px] opacity-60 uppercase font-black tracking-widest">Compete with online neural units</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-white">Compete with online neural units</p>
                 </div>
 
                 <div className="flex items-center gap-4 py-2">
                     <div className="flex -space-x-3">
                         {[1,2,3].map(i => (
-                            <div key={i} className="w-8 h-8 rounded-full border-2 border-red-700 bg-slate-200 flex items-center justify-center text-slate-400 text-[10px] font-bold">U{i}</div>
+                            <div key={i} className="w-8 h-8 rounded-full border-2 border-red-700 bg-white flex items-center justify-center text-red-700 text-[10px] font-bold">U{i}</div>
                         ))}
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest opacity-60">12 Online Now</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white">12 Online Now</span>
                 </div>
 
                 <button className="w-full py-4 bg-white text-red-700 rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all">

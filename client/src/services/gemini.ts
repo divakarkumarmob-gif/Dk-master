@@ -250,7 +250,7 @@ const manager = AIManager.getInstance();
 // Helper to call server AI
 async function callServerAI(path: string, body: any) {
     // For APK/Mobile, we might need a full URL. We use VITE_API_BASE_URL if provided.
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+    const baseUrl = (import.meta as any).env.VITE_API_BASE_URL || '';
     const fullPath = `${baseUrl}${path}`;
     
     // Safety against trailing slash mismatch
@@ -410,7 +410,7 @@ export const geminiService = {
     // Use a completely new cache key prefix to ensure any old hallucinated IDs are ignored globally
     return manager.executeSafeCall(`ytsearch_v4_${topic}`, async () => {
       try {
-        const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+        const baseUrl = (import.meta as any).env.VITE_API_BASE_URL || '';
         const idToken = await auth.currentUser?.getIdToken();
         
         // Use a strict 4.5 second timeout on the client to guarantee 5s total interaction

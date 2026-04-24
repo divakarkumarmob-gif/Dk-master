@@ -13,7 +13,7 @@
   "scripts": {
     "dev": "NODE_ENV=development tsx server/index.ts",
     "start": "NODE_ENV=production tsx server/index.ts",
-    "build": "vite build client && echo 'Build complete'",
+    "build": "vite build client",
     "preview": "vite preview client",
     "lint": "tsc --noEmit -p client/tsconfig.json",
     "client:dev": "npm run dev --workspace=client",

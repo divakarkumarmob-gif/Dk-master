@@ -105,6 +105,18 @@
       "schema": "MessageRequest",
       "description": "Requests for extra messaging capacity."
     },
+    "/friend_requests/{requestId}": {
+      "title": "FriendRequest",
+      "description": "Friend request between users",
+      "type": "object",
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["from", "to", "status"]
+    },
     "/private_chats/{chatId}": {
       "schema": "PrivateChat",
       "description": "1-to-1 conversation messages."

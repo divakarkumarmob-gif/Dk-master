@@ -64,29 +64,29 @@ const AnalysisScreen: React.FC = () => {
   return (
     <div className="space-y-8 py-6 pb-20">
       <div className={cn("px-2 flex justify-between items-center", theme === 'dark' && "text-white")}>
-        <h2 className="text-xl font-display font-black text-olive-dark dark:text-white tracking-tight uppercase">
+        <h2 className="text-xl font-display font-black text-slate-900 dark:text-white tracking-tight uppercase">
             {view === 'archives' ? 'Performance Hub' : 'Galti Sudhar Zone'}
         </h2>
-        <div className="flex bg-[#E8E8E1] dark:bg-zinc-800 p-1 rounded-xl shadow-inner">
+        <div className="flex bg-slate-200 dark:bg-slate-900 p-1 rounded-xl shadow-inner border border-slate-300 dark:border-white/10">
             <button 
                 onClick={() => setView('archives')}
                 className={cn(
                     "px-3 py-1.5 rounded-lg flex items-center gap-2 transition-all duration-300",
-                    view === 'archives' ? "bg-white dark:bg-zinc-700 shadow-md scale-105" : "opacity-40"
+                    view === 'archives' ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-md" : "text-slate-600 dark:text-slate-400 font-bold"
                 )}
             >
-                <HistoryIcon size={14} className={view === 'archives' ? "text-olive-primary" : ""} />
-                <span className="text-[8px] font-black uppercase tracking-widest text-text-main dark:text-white">Archives</span>
+                <HistoryIcon size={14} className={view === 'archives' ? "text-orange-accent" : "text-slate-500"} />
+                <span className="text-[8px] font-black uppercase tracking-widest">Archives</span>
             </button>
             <button 
                 onClick={() => setView('vault')}
                 className={cn(
                     "px-3 py-1.5 rounded-lg flex items-center gap-2 transition-all duration-300",
-                    view === 'vault' ? "bg-orange-accent shadow-md scale-105" : "opacity-40"
+                    view === 'vault' ? "bg-orange-accent text-white shadow-md" : "text-slate-600 dark:text-slate-400 font-bold"
                 )}
             >
-                <Flame size={14} className={view === 'vault' ? "text-white" : ""} />
-                <span className={cn("text-[8px] font-black uppercase tracking-widest", view === 'vault' ? "text-white" : "text-text-main dark:text-white")}>Vault</span>
+                <Flame size={14} className={view === 'vault' ? "text-white" : "text-slate-500"} />
+                <span className="text-[8px] font-black uppercase tracking-widest">Vault</span>
             </button>
         </div>
       </div>
@@ -101,13 +101,13 @@ const AnalysisScreen: React.FC = () => {
             <RankPredictor />
           </div>
 
-          <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-sm border border-line dark:border-white/10 mx-2">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-line dark:border-white/20 mx-2">
             <div className="flex justify-between items-center mb-8">
               <div className="flex items-center gap-2">
                 <TrendingUp size={16} className="text-orange-accent" />
-                <h3 className="text-[10px] uppercase font-black tracking-[0.2em] text-text-muted dark:text-zinc-500 italic">Statistical Trajectory</h3>
+                <h3 className="text-[10px] uppercase font-black tracking-[0.2em] text-black dark:text-white italic">Statistical Trajectory</h3>
               </div>
-              <div className="flex bg-[#E8E8E1] dark:bg-zinc-800 p-1 rounded-xl">
+              <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-white/10">
                 {(['All', 'Minor', 'Major'] as const).map(f => (
                   <button
                     key={f}
@@ -115,8 +115,8 @@ const AnalysisScreen: React.FC = () => {
                     className={cn(
                       "px-3 py-1.5 text-[8px] font-black uppercase tracking-widest rounded-lg transition-all",
                       filter === f 
-                        ? "bg-white dark:bg-zinc-700 text-olive-primary dark:text-white shadow-sm" 
-                        : "text-text-muted dark:text-zinc-500 opacity-50"
+                        ? "bg-white dark:bg-slate-800 text-black dark:text-white shadow-sm" 
+                        : "text-slate-500 dark:text-slate-400"
                     )}
                   >
                     {f}
@@ -234,21 +234,21 @@ const HistoryCard: React.FC<{ result: TestResult, onOpen: (r: TestResult) => voi
       whileTap={isCurrentlyLocked ? {} : { scale: 0.98 }}
       onClick={() => !isCurrentlyLocked && onOpen(result)}
       className={cn(
-        "bg-white dark:bg-zinc-900 p-4 rounded-2xl flex items-center justify-between cursor-pointer border-l-[6px] shadow-sm transition-all border dark:border-white/5",
+        "bg-white dark:bg-slate-900 p-4 rounded-2xl flex items-center justify-between cursor-pointer border-l-[6px] shadow-sm transition-all border dark:border-white/5",
         isCurrentlyLocked ? "border-l-orange-accent opacity-90 shadow-inner bg-orange-accent/[0.02]" : "border-l-olive-primary"
       )}
     >
       <div className="flex items-center gap-4">
         <div className={cn(
           "w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs uppercase tracking-tight transition-colors",
-          isCurrentlyLocked ? "bg-zinc-200 dark:bg-zinc-800 text-text-muted" : (result.type === 'Major' ? "bg-orange-accent text-white" : "bg-olive-primary text-white")
+          isCurrentlyLocked ? "bg-slate-200 dark:bg-slate-800 text-slate-600" : (result.type === 'Major' ? "bg-orange-accent text-white" : "bg-black dark:bg-white text-white dark:text-black")
         )}>
           {result.type === 'Major' ? 'MJR' : 'MNR'}
         </div>
         <div>
-          <p className="text-sm font-bold text-text-main dark:text-white">{result.type} Test: {result.subject || 'Final'}</p>
+          <p className="text-sm font-bold text-black dark:text-white">{result.type} Test: {result.subject || 'Final'}</p>
           <div className="flex items-center gap-2">
-            <p className="text-[10px] text-text-muted dark:text-zinc-500 font-bold uppercase tracking-wider">{format(new Date(result.timestamp), 'dd MMM • hh:mm a')}</p>
+            <p className="text-[10px] text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider">{format(new Date(result.timestamp), 'dd MMM • hh:mm a')}</p>
             {isCurrentlyLocked && (
               <div className="flex items-center gap-1 bg-orange-accent animate-pulse px-1.5 py-0.5 rounded text-white transform scale-90">
                 <Clock size={8} />
@@ -262,9 +262,9 @@ const HistoryCard: React.FC<{ result: TestResult, onOpen: (r: TestResult) => voi
         <div>
           <p className={cn(
             "text-base font-black transition-colors",
-            isCurrentlyLocked ? "text-text-muted opacity-40" : "text-olive-primary dark:text-white"
+            isCurrentlyLocked ? "text-slate-400" : "text-black dark:text-white"
           )}>{result.score}</p>
-          <p className="text-[9px] text-text-muted dark:text-zinc-500 font-bold uppercase tracking-widest mt-0.5">Marks</p>
+          <p className="text-[9px] text-slate-500 dark:text-zinc-400 font-bold uppercase tracking-widest mt-0.5">Marks</p>
         </div>
         {isCurrentlyLocked ? (
           <div className="relative">
@@ -317,23 +317,23 @@ function ResultDetail({ result, onBack }: { result: TestResult, onBack: () => vo
   }, [qFilter]);
 
   return (
-    <div className={cn("fixed inset-0 bg-bg-warm dark:bg-[#0A0A0A] z-[100] flex flex-col animate-in slide-in-from-right duration-300", theme === 'dark' && "dark")}>
-      <header className="flex items-center gap-4 py-5 bg-bg-warm/95 dark:bg-zinc-900/95 backdrop-blur-md z-[70] px-6 border-b border-black/5 dark:border-white/10 shrink-0">
-        <button onClick={onBack} className="w-10 h-10 bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-line dark:border-white/10 flex items-center justify-center transform active:scale-95 transition-transform">
-          <ChevronRight className="rotate-180 text-olive-primary dark:text-white" size={20} />
+    <div className={cn("fixed inset-0 bg-bg-warm dark:bg-slate-950 z-[100] flex flex-col animate-in slide-in-from-right duration-300", theme === 'dark' && "dark")}>
+      <header className="flex items-center gap-4 py-5 bg-bg-warm/95 dark:bg-slate-900/95 backdrop-blur-md z-[70] px-6 border-b border-black/5 dark:border-white/10 shrink-0">
+        <button onClick={onBack} className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-line dark:border-white/20 flex items-center justify-center transform active:scale-95 transition-transform">
+          <ChevronRight className="rotate-180 text-black dark:text-white" size={20} />
         </button>
         <div>
-          <h2 className="font-display font-black text-lg text-olive-dark dark:text-white tracking-tight uppercase">Analysis Protocol</h2>
-          <p className="text-[9px] uppercase tracking-widest font-black text-text-muted dark:text-zinc-500 italic">{result.type} • {result.subject || 'Full Syllabus'}</p>
+          <h2 className="font-display font-black text-lg text-black dark:text-white tracking-tight uppercase">Analysis Protocol</h2>
+          <p className="text-[9px] uppercase tracking-widest font-black text-slate-600 dark:text-slate-400 italic">{result.type} • {result.subject || 'Full Syllabus'}</p>
         </div>
       </header>
 
       <div className="flex-1 overflow-y-auto pb-40">
         <div className="px-6 py-6 space-y-8">
-          <div className="grid grid-cols-3 gap-3">
-            <StatBox label="Correct" value={result.correct} color="text-[#4CAF50] bg-white dark:bg-zinc-900 border border-line dark:border-white/10" />
-            <StatBox label="Inaccurate" value={result.wrong} color="text-orange-accent bg-white dark:bg-zinc-900 border border-line dark:border-white/10" />
-            <StatBox label="Bypassed" value={result.unattempted} color="text-text-muted dark:text-zinc-500 bg-white dark:bg-zinc-900 border border-line dark:border-white/10" />
+            <div className="grid grid-cols-3 gap-3">
+            <StatBox label="Correct" value={result.correct} color="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-2 border-emerald-500/20 shadow-sm" />
+            <StatBox label="Wrong" value={result.wrong} color="bg-red-500/10 text-red-600 dark:text-red-400 border-2 border-red-500/20 shadow-sm" />
+            <StatBox label="Skipped" value={result.unattempted} color="bg-slate-500/10 text-slate-600 dark:text-slate-400 border-2 border-slate-500/20 shadow-sm" />
           </div>
 
           <div className="space-y-6">
@@ -346,7 +346,7 @@ function ResultDetail({ result, onBack }: { result: TestResult, onBack: () => vo
                     onClick={() => setQFilter(f)}
                     className={cn(
                       "whitespace-nowrap text-[8px] font-black uppercase px-4 py-2 rounded-md border transition-all",
-                      qFilter === f ? "bg-olive-primary text-white border-olive-primary shadow-md" : "bg-white dark:bg-zinc-900 text-text-muted dark:text-zinc-500 border-line dark:border-white/10 opacity-60"
+                      qFilter === f ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 shadow-md" : "bg-white dark:bg-slate-900 text-text-muted dark:text-slate-400 border-line dark:border-white/10 opacity-60"
                     )}
                   >
                     {f}
@@ -361,7 +361,7 @@ function ResultDetail({ result, onBack }: { result: TestResult, onBack: () => vo
                   key={`${qFilter}-${currentIndex}`}
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  className="bg-white dark:bg-zinc-900 p-6 rounded-2xl space-y-5 border border-line dark:border-white/10 shadow-sm relative"
+                  className="bg-white dark:bg-slate-900 p-6 rounded-2xl space-y-5 border border-line dark:border-white/10 shadow-sm relative"
                 >
                 <div className="flex justify-between items-center border-b border-black/5 dark:border-white/5 pb-3">
                    <div className="flex items-center gap-3">
@@ -374,17 +374,17 @@ function ResultDetail({ result, onBack }: { result: TestResult, onBack: () => vo
                           "w-8 h-8 rounded-lg flex items-center justify-center transition-all border",
                           starredQuestions.some(sq => sq.text === currentQ.text)
                             ? "bg-orange-accent border-orange-accent text-white" 
-                            : "bg-white dark:bg-zinc-800 border-line dark:border-white/10 text-text-muted dark:text-zinc-500 hover:border-orange-accent/50"
+                            : "bg-white dark:bg-slate-800 border-line dark:border-white/10 text-text-muted dark:text-slate-400 hover:border-orange-accent/50"
                         )}
                       >
                         <Star size={14} fill={starredQuestions.some(sq => sq.text === currentQ.text) ? "currentColor" : "none"} />
                       </button>
-                      <span className="text-[9px] font-black italic text-text-muted dark:text-zinc-500 uppercase tracking-[0.2em]">Inquiry ID-{currentQ.originalIndex + 1}</span>
+                      <span className="text-[9px] font-black italic text-text-muted dark:text-slate-400 uppercase tracking-[0.2em]">Inquiry ID-{currentQ.originalIndex + 1}</span>
                    </div>
                   <span className="text-[10px] font-black text-olive-primary dark:text-white opacity-60">{currentIndex + 1} of {filteredQuestions.length}</span>
                 </div>
                 
-                <p className="font-display font-black text-base leading-relaxed text-text-main dark:text-white">{currentQ.text}</p>
+                <p className="font-display font-black text-base leading-relaxed text-black dark:text-white">{currentQ.text}</p>
                 
                 <div className="grid gap-2">
                   {currentQ.options.map((opt, oIdx) => {
@@ -455,11 +455,11 @@ function ResultDetail({ result, onBack }: { result: TestResult, onBack: () => vo
 
 {/* Navigation Footer */}
       {filteredQuestions.length > 0 && (
-        <div className="fixed bottom-2 left-1/2 -translate-x-1/2 w-[calc(100%-48px)] max-w-sm p-3 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border border-black/5 dark:border-white/10 flex gap-2 z-[80] rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.15)]">
+        <div className="fixed bottom-2 left-1/2 -translate-x-1/2 w-[calc(100%-48px)] max-w-sm p-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-black/5 dark:border-white/10 flex gap-2 z-[80] rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.15)]">
           <button
             onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
             disabled={currentIndex === 0}
-            className="flex-1 py-3.5 rounded-2xl font-black bg-bg-warm dark:bg-zinc-800 text-olive-primary dark:text-white border border-line dark:border-white/5 disabled:opacity-30 uppercase text-[9px] tracking-widest shadow-sm active:scale-95 transition-transform"
+            className="flex-1 py-3.5 rounded-2xl font-black bg-bg-warm dark:bg-slate-800 text-olive-primary dark:text-white border border-line dark:border-white/5 disabled:opacity-30 uppercase text-[9px] tracking-widest shadow-sm active:scale-95 transition-transform"
           >
             Previous
           </button>
@@ -482,7 +482,7 @@ function StatBox({ label, value, color }: { label: string, value: number, color:
   return (
     <div className={cn("p-4 rounded-3xl text-center space-y-1", color)}>
       <p className="text-2xl font-display font-bold">{value}</p>
-      <p className="text-[10px] uppercase font-bold tracking-wider opacity-60">{label}</p>
+      <p className="text-[10px] uppercase font-bold tracking-wider opacity-80">{label}</p>
     </div>
   );
 }

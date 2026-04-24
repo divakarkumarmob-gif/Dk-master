@@ -69,7 +69,7 @@ const SettingsScreen: React.FC = () => {
 
   return (
     <div className="space-y-8 py-6">
-      <h2 className="text-xl font-display font-bold px-2">Settings</h2>
+      <h2 className="text-xl font-display font-bold px-2 text-slate-900 dark:text-white">Settings</h2>
 
       {/* Access Denied Toast */}
       {showAccessDenied && (
@@ -79,20 +79,20 @@ const SettingsScreen: React.FC = () => {
       )}
 
       {/* Profile Header */}
-      <div className="bg-white p-6 rounded-2xl flex flex-col items-center text-center space-y-4 shadow-sm border border-line">
+      <div className="bg-white dark:bg-slate-900/50 p-6 rounded-2xl flex flex-col items-center text-center space-y-4 shadow-sm border border-line dark:border-white/10">
         <div className="relative">
           <div className="w-20 h-20 rounded-full border-4 border-olive-primary/10 p-1">
-            <div className="w-full h-full rounded-full bg-olive-primary/5 flex items-center justify-center text-olive-primary">
+            <div className="w-full h-full rounded-full bg-olive-primary/5 flex items-center justify-center text-olive-primary dark:text-white">
               <User size={32} />
             </div>
           </div>
-          <div className="absolute bottom-0 right-0 w-6 h-6 bg-orange-accent text-white rounded-full flex items-center justify-center border-2 border-white dark:border-olive-dark shadow-sm">
+          <div className="absolute bottom-0 right-0 w-6 h-6 bg-orange-accent text-white rounded-full flex items-center justify-center border-2 border-white dark:border-slate-900 shadow-sm">
              <ShieldCheck size={12} />
           </div>
         </div>
         <div>
           <h3 className="text-xl font-black text-text-main dark:text-white uppercase tracking-tight">{user?.email?.split('@')[0] || 'Learning Pro'}</h3>
-          <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest">{user?.email || 'Authenticated User'}</p>
+          <p className="text-[10px] text-text-muted dark:text-slate-400 font-bold uppercase tracking-widest">{user?.email || 'Authenticated User'}</p>
         </div>
         <button onClick={() => setIsEditing(true)} className="px-6 py-2 bg-orange-accent text-white rounded-full text-xs font-black uppercase tracking-widest shadow-md">Edit Profile</button>
       </div>
@@ -247,7 +247,9 @@ const SettingsScreen: React.FC = () => {
           isOpen={openSection === 'health'}
           onToggle={() => setOpenSection(openSection === 'health' ? null : 'health')}
         >
-          <CompatibilityHub />
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-1">
+            <CompatibilityHub />
+          </div>
         </CollapsibleTool>
 
         <CollapsibleTool 
@@ -255,7 +257,7 @@ const SettingsScreen: React.FC = () => {
           isOpen={openSection === 'error'}
           onToggle={() => setOpenSection(openSection === 'error' ? null : 'error')}
         >
-          <div className="space-y-4 pt-2">
+          <div className="space-y-4 pt-2 bg-white dark:bg-slate-900 rounded-3xl p-4">
             <ActiveRecallBot />
             <ErrorFixTest onStartTest={(config) => {/* Handle test start if needed */}} />
           </div>
@@ -332,7 +334,7 @@ const SettingsScreen: React.FC = () => {
       <div className="px-2">
         <button 
           onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-3 p-4 rounded-xl text-olive-primary font-bold bg-[#E8E8E1] mt-8 mb-12 transition-colors uppercase text-xs tracking-widest"
+          className="w-full flex items-center justify-center gap-3 p-4 rounded-xl text-slate-900 dark:text-white font-bold bg-slate-200 dark:bg-slate-800 mt-8 mb-12 transition-colors uppercase text-xs tracking-widest"
         >
           <LogOut size={18} />
           End Session

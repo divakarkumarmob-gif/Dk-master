@@ -58,7 +58,7 @@ interface HomeScreenProps {
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
   const { streak, results, user } = useAppStore();
-  const [quote, setQuote] = useState("The only way to do great work is to love what you do.");
+  const [quote, setQuote] = useState<{ text: string, author: string }>({ text: "The only way to do great work is to love what you do.", author: "Steve Jobs" });
   const [dailyData, setDailyData] = useState(getDailyChapters());
   const [activeHub, setActiveHub] = useState<'main' | 'study'>('main');
   const [openTool, setOpenTool] = useState<string | null>(null);
@@ -95,7 +95,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
       try {
         const { week, quotes } = JSON.parse(storedWeekly);
         if (week === weekId && Array.isArray(quotes) && quotes.length === 7) {
-            setQuote(quotes[dayOfWeek]);
+            setQuote({ text: quotes[dayOfWeek], author: 'DK Tactical' });
             return;
         }
       } catch(e) {}
@@ -130,7 +130,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
           }
           if (quotesArray.length >= 7) {
               localStorage.setItem('weekly_quotes_cache', JSON.stringify({ week: weekId, quotes: quotesArray }));
-              setQuote(quotesArray[dayOfWeek]);
+              setQuote({ text: quotesArray[dayOfWeek], author: 'DK Tactical' });
               return;
           }
       }
@@ -145,134 +145,135 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
   };
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-4 px-2 pb-[100px]">
       {/* Date & Countdown */}
-      <div className="flex justify-between items-center px-4 pt-2">
-        <span className="text-sm font-medium text-text-muted">{format(new Date(), 'MMMM dd, yyyy')}</span>
-        <span className="bg-orange-accent text-white px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase">
-          {daysLeft > 0 ? daysLeft : 0} DAYS REMAINING
-        </span>
+      <div className="flex justify-between items-center px-4 pt-4">
+        <div className="space-y-0.5">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-red-600">Live Mission</p>
+            <span className="text-xl font-black text-black dark:text-white uppercase tracking-tighter">{format(new Date(), 'MMMM dd')}</span>
+        </div>
+        <div className="flex flex-col items-end">
+            <span className="bg-slate-900 dark:bg-white text-white dark:text-black px-4 py-1.5 rounded-xl text-[10px] font-black tracking-widest uppercase shadow-lg">
+               {daysLeft > 0 ? daysLeft : 0} D-REMAINING
+            </span>
+        </div>
       </div>
 
-      {/* Tab Navigation Icons/Boxes */}
-      <motion.div 
-        variants={{
-          visible: { y: 0, opacity: 1 },
-          hidden: { y: "-100%", opacity: 0 }
-        }}
-        animate={isNavVisible ? "visible" : "hidden"}
-        transition={{ duration: 0.3, ease: "easeInOut" }}
-        className="grid grid-cols-2 gap-3 px-4 sticky top-0 z-40 py-3 bg-white/80 dark:bg-black/80 backdrop-blur-md"
-      >
+      {/* Hub Navigation */}
+      <div className="grid grid-cols-2 gap-3 px-2 py-4">
         <motion.button 
             whileTap={{ scale: 0.95 }}
             onClick={() => setActiveHub('main')}
             className={cn(
-                "py-2.5 px-4 rounded-[18px] border-2 transition-all flex items-center justify-center gap-3",
+                "py-3.5 px-4 rounded-[20px] transition-all flex items-center justify-center gap-3 border-2 shadow-sm",
                 activeHub === 'main' 
-                    ? "bg-white dark:bg-zinc-800 border-orange-accent shadow-lg shadow-orange-500/10" 
-                    : "bg-zinc-800/50 border-transparent opacity-60"
+                    ? "bg-white dark:bg-slate-800 border-orange-accent text-orange-accent shadow-orange-500/10" 
+                    : "bg-slate-100 dark:bg-slate-900/50 border-transparent text-slate-500 dark:text-slate-400"
             )}
         >
-            <Box size={18} className={activeHub === 'main' ? "text-orange-accent" : "text-text-muted"} />
-            <span className="text-[9px] font-black uppercase tracking-widest leading-none">Main Hub</span>
+            <Box size={18} />
+            <span className="text-[10px] font-black uppercase tracking-widest leading-none">Main Hub</span>
         </motion.button>
         <motion.button 
             whileTap={{ scale: 0.95 }}
             onClick={() => setActiveHub('study')}
             className={cn(
-                "py-2.5 px-4 rounded-[18px] border-2 transition-all flex items-center justify-center gap-3",
+                "py-3.5 px-4 rounded-[20px] transition-all flex items-center justify-center gap-3 border-2 shadow-sm",
                 activeHub === 'study' 
-                    ? "bg-zinc-950 border-emerald-500 shadow-lg shadow-emerald-500/10" 
-                    : "bg-zinc-800/50 border-transparent opacity-60"
+                    ? "bg-white dark:bg-slate-800 border-emerald-500 text-emerald-600 dark:text-emerald-400 shadow-emerald-500/10" 
+                    : "bg-slate-100 dark:bg-slate-900/50 border-transparent text-slate-500 dark:text-slate-400"
             )}
         >
-            <Brain size={18} className={activeHub === 'study' ? "text-emerald-400" : "text-text-muted"} />
-            <span className={cn("text-[9px] font-black uppercase tracking-widest leading-none", activeHub === 'study' ? "text-white" : "text-text-muted")}>Study Hub</span>
+            <Brain size={18} />
+            <span className="text-[10px] font-black uppercase tracking-widest leading-none">Study Lab</span>
         </motion.button>
-      </motion.div>
+      </div>
 
       <AnimatePresence mode="wait">
         {activeHub === 'main' ? (
           <motion.div 
-            key="main-hub"
+            key="main"
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 10 }}
-            className="space-y-1"
+            className="space-y-4"
           >
-            {/* Operational Base Content - No Outer Box */}
-            <div className="px-4 space-y-4">
-                <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-accent">Operational Greeting</p>
-                    <h2 className="text-xl font-black text-text-main dark:text-white uppercase tracking-tight">Hello, {user?.email?.split('@')[0] || 'Aspirant'}!</h2>
-                </div>
+            <div className="px-1 overflow-hidden">
+                <AudioRevision />
+            </div>
 
-                {/* Compact Streak row */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-white dark:bg-zinc-900 px-3 py-1.5 rounded-lg flex items-center justify-between shadow-sm border border-line dark:border-white/5">
-                    <span className="text-[10px] font-bold text-text-muted uppercase">Streak</span>
-                    <span className="text-sm font-black text-olive-primary">{streak}</span>
-                  </div>
-                  <div className="bg-white dark:bg-zinc-900 px-3 py-1.5 rounded-lg flex items-center justify-between shadow-sm border border-line dark:border-white/5">
-                    <span className="text-[10px] font-bold text-text-muted uppercase">Avg</span>
-                    <span className="text-sm font-black text-olive-primary">
-                      {results.length > 0 ? (results.reduce((acc, r) => acc + r.score, 0) / results.length).toFixed(0) : 0}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Daily Chapters */}
-                <div className="space-y-2">
-                  <h2 className="text-base font-black flex items-center gap-2 text-olive-dark dark:text-white uppercase tracking-widest px-1">
-                    <Target size={18} className="text-orange-accent" />
-                    Today's Goals
-                  </h2>
-                  {dailyData.isSunday ? (
-                    <button onClick={() => onStartTest({ id: 'major-' + Date.now(), type: 'Major' })} className="w-full relative overflow-hidden p-6 rounded-[32px] flex items-center justify-between bg-gradient-to-r from-teal-500 to-green-700 text-white shadow-xl">
-                        <span className="text-lg font-black uppercase">Start Full Test</span>
-                        <ChevronRight size={20} />
-                    </button>
-                  ) : (
-                    <div className="grid gap-3">
-                       {Object.entries(dailyData.chapters).map(([subject, chapter]) => (
-                        <ChapterCard 
-                          key={subject}
-                          subject={subject}
-                          chapter={chapter as string}
-                          completed={hasCompletedTest(subject, chapter as string)}
-                          onClick={() => onStartTest({ id: `minor-${subject}-${Date.now()}`, type: 'Minor', subject, chapter: chapter as string })}
-                          onPlay={(id) => setActiveVideo({ id, title: chapter as string })}
-                        />
-                       ))}
+            <div className="grid grid-cols-2 gap-3 px-1">
+                <div className="quote-box p-6">
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">Streak</p>
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-orange-accent/10 flex items-center justify-center text-orange-accent">
+                            <Sparkles size={20} />
+                        </div>
+                        <span className="text-2xl font-black text-slate-900 dark:text-white">{streak}</span>
                     </div>
-                  )}
                 </div>
+                <div className="quote-box p-6">
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">Avg Score</p>
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+                            <Target size={20} />
+                        </div>
+                        <span className="text-2xl font-black text-slate-900 dark:text-white">
+                            {results.length > 0 ? (results.reduce((acc, r) => acc + r.score, 0) / results.length).toFixed(0) : 0}%
+                        </span>
+                    </div>
+                </div>
+            </div>
 
-                {/* Podcast Section */}
-                <AudioRevision showCompact={true} />
+            <div className="space-y-4 pt-4">
+                <h2 className="text-sm font-black uppercase tracking-[0.3em] text-slate-500 px-2">Mission Objectives</h2>
+                {dailyData.isSunday ? (
+                    <button onClick={() => onStartTest({ id: 'major-' + Date.now(), type: 'Major' })} className="mx-2 p-8 rounded-[40px] bg-slate-900 text-white flex flex-col items-center justify-center gap-4 group">
+                        <div className="w-16 h-16 rounded-[24px] bg-white/10 flex items-center justify-center group-active:scale-90 transition-transform">
+                            <Trophy size={32} className="text-yellow-500" />
+                        </div>
+                        <div className="text-center">
+                            <p className="text-lg font-black uppercase tracking-tight">Sunday Major Test</p>
+                            <p className="text-[10px] opacity-40 font-bold uppercase tracking-[0.2em]">Full Syllabus Sync</p>
+                        </div>
+                    </button>
+                ) : (
+                    <div className="grid gap-4 px-1">
+                    {Object.entries(dailyData.chapters).map(([subject, chapter]) => (
+                        <ChapterCard 
+                        key={subject}
+                        subject={subject}
+                        chapter={chapter as string}
+                        completed={hasCompletedTest(subject, chapter as string)}
+                        onClick={() => onStartTest({ id: `minor-${subject}-${Date.now()}`, type: 'Minor', subject, chapter: chapter as string })}
+                        onPlay={(id) => setActiveVideo({ id, title: chapter as string })}
+                        />
+                    ))}
+                    </div>
+                )}
+            </div>
 
+            <div className="px-1">
                 <PlannerBot />
+            </div>
 
+            <div className="px-1">
                 <StudyPulse />
+            </div>
+
+            <div className="px-2">
+                <Leaderboard />
             </div>
           </motion.div>
         ) : (
           <motion.div 
-            key="study-hub"
+            key="study"
             initial={{ opacity: 0, x: 10 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -10 }}
-            className="space-y-10 px-4 pb-12"
+            className="space-y-3 px-1 pb-12"
           >
-            {/* Study Hub Content */}
-            <div className="relative">
-                <div className="mb-8">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500 mb-1">Knowledge Nexus</p>
-                    <h2 className="text-xl font-black text-text-main dark:text-white uppercase tracking-tight">Active Learning Tools</h2>
-                </div>
-                
-                <div className="space-y-2 relative z-10">
+            <div className="relative z-10 space-y-3">
                   <CollapsibleTool 
                     title="Lecture Library"
                     isOpen={openTool === 'lectures'}
@@ -288,7 +289,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
                   >
                     <ConceptBot />
                     <VisualDecoder />
-                    <QuestionScanner onStartTest={(qs) => onStartTest({ id: 'scan-' + Date.now(), type: 'Minor', questions: qs })} />
+                    <QuestionScanner />
                   </CollapsibleTool>
                   
                   <CollapsibleTool 
@@ -303,7 +304,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
                   </CollapsibleTool>
 
                   <CollapsibleTool 
-                    title="Resources & Memory"
+                    title="Memory Vault"
                     isOpen={openTool === 'res'}
                     onToggle={() => setOpenTool(openTool === 'res' ? null : 'res')}
                   >
@@ -313,45 +314,31 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
                     <NCERTAudioLibrary />
                   </CollapsibleTool>
                 </div>
-            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="px-4 space-y-8">
-        {/* Global Sections */}
-        <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-display font-bold flex items-center gap-2 text-olive-dark dark:text-white uppercase tracking-widest">
-                  <Trophy size={20} className="text-yellow-500" />
-                  Elite Ranking
-              </h2>
-            </div>
-            <Leaderboard />
-        </div>
-
-        <div className="quote-box group cursor-pointer" onClick={fetchManualQuote}>
-          <p className="text-base italic leading-relaxed font-serif mb-3 text-olive-dark">"{quote}"</p>
-          <div className="flex justify-between items-center">
-            <p className="text-[10px] uppercase tracking-wider font-extrabold opacity-40">Tap for daily Inspiration</p>
-            <p className="text-[10px] uppercase tracking-widest font-black text-orange-accent/50">powered by dk</p>
+      {/* Shared Footer Elements */}
+      <div className="quote-box mx-1 group cursor-pointer" onClick={fetchManualQuote}>
+          <div className="flex items-center gap-3 mb-4">
+            <Quote size={20} className="text-orange-accent" />
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Tactical Wisdom</p>
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="text-center pb-8 pt-4">
-          <h1 className="text-lg font-display font-bold text-olive-primary opacity-40">NEET Prep</h1>
-          <p className="text-[9px] uppercase font-bold tracking-[0.2em] text-text-muted opacity-30">Learn & Connect</p>
-        </div>
+          <p className="text-xl font-black leading-tight text-slate-900 dark:text-white uppercase tracking-tight mb-6">"{quote.text}"</p>
+          <div className="flex justify-between items-center">
+            <p className="text-[10px] uppercase tracking-wider font-extrabold italic text-slate-400">Neural Refresh...</p>
+            <p className="text-[10px] uppercase tracking-widest font-black text-orange-accent">Powered by DK</p>
+          </div>
       </div>
 
-      <VoiceAI />
-      
+      <div className="px-1">
+        <VoiceAI />
+      </div>
+
       <AnimatePresence>
         {activeVideo && (
           <VideoModal 
             videoId={activeVideo.id} 
-            title={activeVideo.title} 
             onClose={() => setActiveVideo(null)} 
           />
         )}
@@ -389,33 +376,43 @@ const ChapterCard: React.FC<{ subject: string, chapter: string, completed: boole
 
   return (
     <motion.div
-      whileHover={{ scale: 1.02 }}
+      whileHover={{ scale: 1.01 }}
       className={cn(
-        "bg-white dark:bg-zinc-900 p-4 rounded-2xl flex items-center justify-between border-l-[6px] shadow-sm transition-all dark:border-y dark:border-r dark:border-white/5",
-        borderColors[subject]
+        "bg-white dark:bg-slate-900/50 p-5 rounded-[24px] flex items-center justify-between border-2 shadow-sm transition-all relative overflow-hidden",
+        subject === 'Physics' ? "border-blue-500/20" : subject === 'Chemistry' ? "border-orange-500/20" : "border-emerald-500/20"
       )}
     >
-      <div className="subj-info pr-2">
-        <h3 className="text-[10px] uppercase font-bold tracking-wider text-text-muted mb-1">{subject}</h3>
-        <p className="text-[14px] leading-tight font-bold text-text-main dark:text-white line-clamp-2">{chapter}</p>
+      <div className={cn(
+          "absolute left-0 top-0 bottom-0 w-1.5",
+          subject === 'Physics' ? "bg-blue-600" : subject === 'Chemistry' ? "bg-orange-600" : "bg-emerald-600"
+      )} />
+      
+      <div className="subj-info pr-4">
+        <h3 className={cn(
+            "text-[9px] uppercase font-black tracking-[0.2em] mb-1 font-mono",
+            subject === 'Physics' ? "text-blue-600 dark:text-blue-400" : subject === 'Chemistry' ? "text-orange-600 dark:text-orange-400" : "text-emerald-600 dark:text-emerald-400"
+        )}>{subject}</h3>
+        <p className="text-[15px] leading-tight font-black text-slate-900 dark:text-white uppercase tracking-tight line-clamp-2">{chapter}</p>
       </div>
       <div className="flex items-center gap-2">
         <button 
           onClick={handlePlay}
           disabled={isLoading}
-          className="w-9 h-9 rounded-full bg-red-50 dark:bg-red-500/10 text-red-500 hover:bg-red-100 dark:hover:bg-red-500/20 flex items-center justify-center transition-colors shrink-0 shadow-sm border border-red-100 dark:border-red-500/20"
+          className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300 hover:text-red-500 flex items-center justify-center transition-all shrink-0 hover:shadow-md border border-slate-200 dark:border-white/5"
           title="Watch Lecture"
         >
-          {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} className="ml-0.5" />}
+          {isLoading ? <Loader2 size={16} className="animate-spin text-orange-accent" /> : <Play size={16} fill="currentColor" className="ml-0.5" />}
         </button>
         <motion.button 
           whileTap={{ scale: 0.95 }}
           onClick={onClick}
           className={cn(
-            "py-2.5 px-4 rounded-xl text-xs font-bold transition-colors whitespace-nowrap",
-            completed ? "bg-[#E8E8E1] dark:bg-emerald-900/30 text-olive-primary dark:text-emerald-400" : "bg-olive-primary dark:bg-white text-white dark:text-black"
+            "py-3 px-5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg border",
+            completed 
+                ? "bg-emerald-500/10 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 cursor-default shadow-none" 
+                : "bg-slate-900 dark:bg-white text-white dark:text-black border-transparent hover:shadow-orange-500/10 active:scale-95"
           )}>
-          {completed ? "Done ✔️" : "Start Test"}
+          {completed ? "Done" : "Start"}
         </motion.button>
       </div>
     </motion.div>

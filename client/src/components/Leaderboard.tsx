@@ -12,12 +12,12 @@ export const Leaderboard: React.FC = () => {
   return (
     <div className="space-y-4">
       {users.map((u, i) => (
-        <div key={i} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-zinc-800 rounded-2xl border border-slate-100 dark:border-white/5">
+        <div key={i} className="flex items-center justify-between p-4 bg-slate-100 dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-white/10">
           <div className="flex items-center gap-4">
-            <div className="w-8 h-8 rounded-full bg-orange-accent/10 flex items-center justify-center text-orange-accent font-black text-xs">
+            <div className="w-8 h-8 rounded-full bg-orange-accent/15 flex items-center justify-center text-orange-accent font-black text-xs">
               {u.rank}
             </div>
-            <span className="font-bold text-sm text-slate-800 dark:text-white">{u.name}</span>
+            <span className="font-bold text-sm text-black dark:text-white">{u.name}</span>
           </div>
           <div className="flex items-center gap-2">
             <Star size={14} className="text-orange-accent fill-orange-accent" />
