@@ -22,7 +22,7 @@ jobs:
           NODE_ENV: production
 
       - name: Install Functions Dependencies
-        run: npm ci
+        run: npm install
         working-directory: functions
 
       - name: Deploy to Firebase
