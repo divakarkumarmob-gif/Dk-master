@@ -1,45 +1,24 @@
+import { onRequest } from "firebase-functions/v2/https";
 import express from "express";
 import cors from "cors";
-import path from "path";
-import { createServer as createViteServer } from "vite";
-import fs from "fs-extra";
-import dotenv from "dotenv";
 import nodemailer from "nodemailer";
-import { initializeApp, cert } from 'firebase-admin/app';
+import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from "firebase-admin/auth";
+import dotenv from "dotenv";
 
 dotenv.config();
 
 const app = express();
-
-app.use(cors());
+app.use(cors({ origin: true }));
 app.use(express.json());
 
-// Initialize Firebase Admin (lazy load or check if env vars exist)
-let adminApp: any = null;
-let adminDb: any = null;
-let adminAuth: any = null;
+// Initialize Firebase Admin
+initializeApp();
+const adminDb = getFirestore();
+const adminAuth = getAuth();
 
-const setupAdmin = () => {
-    if (!adminApp && process.env.FIREBASE_SERVICE_ACCOUNT) {
-        try {
-            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-            adminApp = initializeApp({
-                credential: cert(serviceAccount)
-            });
-            adminDb = getFirestore();
-            adminAuth = getAuth();
-            console.log("Firebase Admin Setup Complete");
-        } catch (e) {
-            console.error("Firebase Admin Error:", e);
-        }
-    }
-};
-
-setupAdmin();
-
-// Email Transporter
+// Email Transporter (Ensure EMAIL_USER and EMAIL_PASS are set in Firebase Config)
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -48,15 +27,16 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// OTP Storage (In-memory for now, for demo/simple env, replace with Redis for production)
+// OTP Storage (Firebase Functions are ephemeral, use Redis or Firestore for production OTP storage)
+// For now, let's keep it simple or implement a temporary storage in Firestore
 const otpStore = new Map<string, { code: string, expires: number }>();
 
 // API Routes
-app.get("/api/health", (req, res) => {
+app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-app.post("/api/auth/send-otp", async (req, res) => {
+app.post("/auth/send-otp", async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: "Email required" });
 
@@ -82,13 +62,13 @@ app.post("/api/auth/send-otp", async (req, res) => {
             `
         });
         res.json({ success: true, message: "OTP sent" });
-    } catch (e) {
+    } catch (e: any) {
         console.error("Mail error:", e);
-        res.status(500).json({ error: "Failed to send OTP", details: (e as Error).message });
+        res.status(500).json({ error: "Failed to send OTP", details: e.message });
     }
 });
 
-app.post("/api/auth/verify-otp", async (req, res) => {
+app.post("/auth/verify-otp", async (req, res) => {
     const { email, code } = req.body;
     const stored = otpStore.get(email);
 
@@ -96,14 +76,13 @@ app.post("/api/auth/verify-otp", async (req, res) => {
         return res.status(400).json({ error: "Invalid or expired code" });
     }
 
-    // Return a temporary session token (in-memory for this session)
     const sessionToken = Math.random().toString(36).substring(7);
     otpStore.set(email, { code: "VERIFIED", sessionToken, expires: Date.now() + 5 * 60 * 1000 } as any);
 
     res.json({ success: true, sessionToken });
 });
 
-app.post("/api/auth/set-password", async (req, res) => {
+app.post("/auth/set-password", async (req, res) => {
     const { email, password, sessionToken } = req.body;
     const stored = otpStore.get(email);
 
@@ -112,16 +91,11 @@ app.post("/api/auth/set-password", async (req, res) => {
     }
 
     try {
-        setupAdmin();
-        if (!adminAuth) throw new Error("Auth system offline");
-
         let userRecord;
         try {
             userRecord = await adminAuth.getUserByEmail(email);
-            // If user exists, update password (forgot password flow)
             await adminAuth.updateUser(userRecord.uid, { password });
         } catch {
-            // If user doesn't exist, create (signup flow)
             await adminAuth.createUser({ email, password, emailVerified: true });
         }
 
@@ -133,48 +107,4 @@ app.post("/api/auth/set-password", async (req, res) => {
     }
 });
 
-async function setupServer() {
-  const isProd = process.env.NODE_ENV === "production";
-  console.log(`Starting server in ${isProd ? 'production' : 'development'} mode...`);
-
-  // Vite middleware for development
-  if (!isProd) {
-    try {
-      console.log("Initializing Vite dev server...");
-      const vite = await createViteServer({
-        server: { middlewareMode: true },
-        appType: "spa",
-        root: path.resolve(process.cwd(), "client"),
-      });
-      app.use(vite.middlewares);
-      console.log("Vite middleware attached.");
-    } catch (e) {
-      console.error("Vite server failed to start:", e);
-    }
-  } else {
-    const distPath = path.resolve(process.cwd(), "client/dist");
-    console.log(`Looking for production files at: ${distPath}`);
-    if (await fs.pathExists(distPath)) {
-      console.log("Production files found. Serving from dist.");
-      app.use(express.static(distPath));
-      app.get("*all", (req, res) => {
-        res.sendFile(path.join(distPath, "index.html"));
-      });
-    } else {
-      console.error(`ERROR: Production path ${distPath} does not exist!`);
-    }
-  }
-
-  const PORT = 3000;
-
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server is LIVE on port ${PORT}`);
-    console.log(`Health check available at: /api/health`);
-    console.log(`Public URL should point to port: ${PORT}`);
-  });
-}
-
-setupServer().catch(err => {
-  console.error("Critical server startup error:", err);
-  process.exit(1);
-});
+export const api = onRequest(app);

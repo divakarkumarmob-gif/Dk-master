@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      window.addEventListener('error', function(event) {
+        var errorDiv = document.createElement('div');
+        errorDiv.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:red;color:white;padding:20px;z-index:9999999;font-family:monospace;overflow:auto;word-wrap:break-word;';
+        errorDiv.innerHTML = '<h3>React Fatal Error</h3><p>' + escapeHtml(event.message) + '</p><pre>' + escapeHtml(event.error ? event.error.stack : '') + '</pre>';
+        document.body.appendChild(errorDiv);
+      });
+      window.addEventListener('unhandledrejection', function(event) {
+        var errorDiv = document.createElement('div');
+        errorDiv.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:purple;color:white;padding:20px;z-index:9999999;font-family:monospace;overflow:auto;word-wrap:break-word;';
+        errorDiv.innerHTML = '<h3>Unhandled Promise</h3><p>' + escapeHtml(event.reason) + '</p><pre>' + escapeHtml(event.reason && event.reason.stack ? event.reason.stack : '') + '</pre>';
+        document.body.appendChild(errorDiv);
+      });
+      function escapeHtml(unsafe) {
+          if (!unsafe) return '';
+          return unsafe.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+      }
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F5F5F0" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0A0A0A" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=NP&background=2563eb&color=fff&size=180" />
+    <title>NEET Prep</title>
+    <style>
+      #loading-screen {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: #F5F5F0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        font-family: system-ui, -apple-system, sans-serif;
+        color: #1a1a1a;
+      }
+      .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid rgba(37, 99, 235, 0.1);
+        border-left-color: #2563eb;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 20px;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .loading-text { font-weight: 600; margin-bottom: 8px; }
+      .status-text { font-size: 14px; color: #666; }
+    </style>
+    <script type="module" crossorigin src="/assets/index-BIvelW1z.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CCnY3h1x.css">
+  </head>
+  <body>
+    <div id="loading-screen">
+      <div class="spinner"></div>
+      <div class="loading-text">NEET Prep is starting...</div>
+      <div id="status-line" class="status-text">Connecting to Neural Link...</div>
+    </div>
+    <div id="root"></div>
+    <script>
+      // Automatically hide loading screen after React mounts
+      const loaderObserver = new MutationObserver(() => {
+        const root = document.getElementById('root');
+        if (root && root.children.length > 0) {
+          const loader = document.getElementById('loading-screen');
+          if (loader) loader.style.display = 'none';
+          loaderObserver.disconnect();
+        }
+      });
+      loaderObserver.observe(document.getElementById('root'), { childList: true });
+
+      // Safety timeout: dismiss loader after 4s even if React hasn't finished mounting
+      setTimeout(() => {
+        const loader = document.getElementById('loading-screen');
+        if (loader && loader.style.display !== 'none') {
+          console.warn('React mount timeout: forcing loader dismissal');
+          loader.style.display = 'none';
+        }
+      }, 4000);
+    </script>
+    <script>
+      if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('SW Registered', reg))
+            .catch(err => console.log('SW Failed', err));
+        });
+      }
+    </script>
+  </body>
+</html>
+

@@ -31,7 +31,7 @@ import { Toast } from './components/Toast';
 import { DKLive } from './components/DKLive';
 
 export default function App() {
-  const { user, setUser, setFullState, theme, updateStreak, activeTab, setActiveTab, cleanupOldChatHistory } = useAppStore();
+  const { user, setUser, setFullState, theme, updateStreak, activeTab, setActiveTab, cleanupOldChatHistory, results, notes, starredQuestions, mistakeVault, chatHistory, streak, lastLoginDate } = useAppStore();
   const [activeTest, setActiveTest] = useState<{ 
     id: string; 
     type: 'Minor' | 'Major'; 
@@ -54,6 +54,18 @@ export default function App() {
       return null;
     }
   });
+
+  // Debounced Sync to Firebase Firestore
+  useEffect(() => {
+    if (!user) return;
+    
+    const handler = setTimeout(async () => {
+        const { dataSync } = await import('./services/dataSync');
+        dataSync.saveUserData(user.uid, { results, notes, starredQuestions, mistakeVault, chatHistory, profile: { streak, lastLoginDate } });
+    }, 5000);
+    
+    return () => clearTimeout(handler);
+  }, [results, notes, starredQuestions, mistakeVault, chatHistory, streak, lastLoginDate, user]);
 
   useEffect(() => {
     // Save state to localStorage whenever it changes

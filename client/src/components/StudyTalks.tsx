@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Send, Users, Sparkles, User, Zap, MessageCircle, Search, ChevronLeft, Lock, UserPlus, Check, X, ShieldAlert, ShieldCheck, Loader2 } from 'lucide-react';
+import { Send, Users, Sparkles, User, Zap, MessageCircle, Search, ChevronLeft, Lock, UserPlus, Check, X, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { UnifiedInput } from './UnifiedInput';
 import { useAppStore } from '../store/useAppStore';
 import { db } from '../services/firebase';
@@ -65,8 +65,6 @@ const StudyTalks: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isBlocked, setIsBlocked] = useState(false);
   const [blockerId, setBlockerId] = useState<string | null>(null);
-  const [showUsernameModal, setShowUsernameModal] = useState(false);
-  const [newUsername, setNewUsername] = useState("");
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
   const [profileModalUser, setProfileModalUser] = useState<UserProfile | null>(null);
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
@@ -105,7 +103,7 @@ const StudyTalks: React.FC = () => {
         userEmail: user.email,
         timestamp: serverTimestamp()
       });
-      alert(`Report submitted for ${targetUser.username}. Tactical scan initiated.`);
+      alert(`Report submitted for ${targetUser.username || targetUser.email.split('@')[0]}. Tactical scan initiated.`);
     } catch (e) {
       console.error(e);
     }
@@ -133,11 +131,15 @@ const StudyTalks: React.FC = () => {
     if (!user) return;
     
     const userRef = doc(db, 'users', user.uid);
-    const updateOnlineStatus = (online: boolean) => {
-      updateDoc(userRef, {
-        isOnline: online,
-        lastActive: serverTimestamp()
-      });
+    const updateOnlineStatus = async (online: boolean) => {
+      try {
+        await setDoc(userRef, {
+          isOnline: online,
+          lastActive: serverTimestamp()
+        }, { merge: true });
+      } catch (e) {
+        console.error("Presence sync failed:", e);
+      }
     };
 
     updateOnlineStatus(true);
@@ -172,26 +174,6 @@ const StudyTalks: React.FC = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleUnload);
     };
-  }, [user]);
-
-  // Check for Username
-  useEffect(() => {
-    if (!user) return;
-    const checkUsername = async () => {
-      const userRef = doc(db, 'users', user.uid);
-      const snap = await getDoc(userRef);
-      if (snap.exists() && !snap.data().username) {
-        setShowUsernameModal(true);
-      } else if (!snap.exists()) {
-        await setDoc(userRef, {
-          email: user.email,
-          isOnline: true,
-          lastActive: serverTimestamp()
-        });
-        setShowUsernameModal(true);
-      }
-    };
-    checkUsername();
   }, [user]);
 
   // Sync Current User Profile
@@ -233,12 +215,13 @@ const StudyTalks: React.FC = () => {
 
   // Fetch Community Messages
   useEffect(() => {
-    if (activeChannel !== 'community') return;
+    setMessages([]);
+    if (activeChannel !== 'community' || !user) return;
 
     setIsLoading(true);
     const q = query(
       collection(db, 'community_chat'),
-      orderBy('timestamp', 'asc'),
+      orderBy('timestamp', 'desc'),
       limit(50)
     );
 
@@ -247,13 +230,16 @@ const StudyTalks: React.FC = () => {
         id: doc.id,
         ...doc.data()
       })) as ChatMessage[];
-      setMessages(msgs);
+      // Reverse to show oldest first at top, newest at bottom
+      setMessages(msgs.reverse());
       setIsLoading(false);
       scrollToBottom();
+    }, (error) => {
+      console.error("Community snapshot error:", error);
     });
 
     return () => unsubscribe();
-  }, [activeChannel]);
+  }, [activeChannel, user]);
 
   // Fetch Private Messages & Block Status
   useEffect(() => {
@@ -277,7 +263,7 @@ const StudyTalks: React.FC = () => {
 
     const q = query(
       collection(db, 'private_chats', chatId, 'messages'),
-      orderBy('timestamp', 'asc'),
+      orderBy('timestamp', 'desc'),
       limit(50)
     );
 
@@ -286,9 +272,12 @@ const StudyTalks: React.FC = () => {
         id: doc.id,
         ...doc.data()
       })) as ChatMessage[];
-      setMessages(msgs);
+      // Reverse to show oldest first at top, newest at bottom
+      setMessages(msgs.reverse());
       setIsLoading(false);
       scrollToBottom();
+    }, (error) => {
+      console.error("Private chat snapshot error:", error);
     });
 
     return () => {
@@ -341,10 +330,7 @@ const StudyTalks: React.FC = () => {
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || !user || isBlocked) return;
 
-    // Get current user profile for username
-    const userRef = doc(db, 'users', user.uid);
-    const userSnap = await getDoc(userRef);
-    const username = userSnap.data()?.username || user.email?.split('@')[0] || 'Anonymous';
+    const username = currentUserProfile?.username || user.email?.split('@')[0] || 'Anonymous';
 
     try {
       if (activeChannel === 'community') {
@@ -390,24 +376,6 @@ const StudyTalks: React.FC = () => {
       }
     } catch (error) {
       console.error("Error sending message:", error);
-    }
-  };
-
-  const [isUpdatingUsername, setIsUpdatingUsername] = useState(false);
-
-  const setUsername = async () => {
-    if (!newUsername.trim() || !user) return;
-    setIsUpdatingUsername(true);
-    try {
-      await setDoc(doc(db, 'users', user.uid), {
-        username: newUsername.trim()
-      }, { merge: true });
-      setShowUsernameModal(false);
-    } catch (e) {
-      console.error(e);
-      alert("Failed to sync identity. Neural network link unstable.");
-    } finally {
-      setIsUpdatingUsername(false);
     }
   };
 
@@ -840,47 +808,6 @@ const StudyTalks: React.FC = () => {
         </AnimatePresence>
       </div>
 
-      {/* Username Modal */}
-      <AnimatePresence>
-        {showUsernameModal && (
-            <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-slate-950/90 z-[100] flex items-center justify-center p-6 backdrop-blur-xl"
-            >
-                <motion.div 
-                    initial={{ scale: 0.9, y: 20 }}
-                    animate={{ scale: 1, y: 0 }}
-                    className="w-full max-w-sm bg-slate-900 border border-white/10 p-8 rounded-[40px] shadow-2xl text-center space-y-6"
-                >
-                    <div className="w-20 h-20 bg-orange-accent/20 rounded-[32px] flex items-center justify-center text-orange-accent mx-auto">
-                        <Zap size={40} />
-                    </div>
-                    <div>
-                        <h2 className="text-xl font-black text-white uppercase tracking-tight">Identity Required</h2>
-                        <p className="text-xs text-white/50 mt-2 font-medium">Establish your tactical handle before entering the public community hub.</p>
-                    </div>
-                    <input 
-                        type="text"
-                        placeholder="ENTER USERNAME"
-                        value={newUsername}
-                        onChange={(e) => setNewUsername(e.target.value)}
-                        className="w-full bg-black/50 border border-white/10 p-5 rounded-3xl text-center font-black uppercase text-sm tracking-widest outline-none focus:border-orange-accent transition-all text-white"
-                    />
-                    <button 
-                        onClick={setUsername}
-                        disabled={!newUsername.trim() || isUpdatingUsername}
-                        className="w-full bg-orange-accent p-5 rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-[0_10px_20px_rgba(255,99,33,0.3)] active:scale-95 transition-transform disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                        {isUpdatingUsername && <Loader2 size={16} className="animate-spin" />}
-                        {isUpdatingUsername ? 'SYNCING...' : 'INITIALIZE SYNC'}
-                    </button>
-                </motion.div>
-            </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* User Profile Modal */}
       <AnimatePresence>
         {profileModalUser && (
@@ -913,7 +840,7 @@ const StudyTalks: React.FC = () => {
                         </div>
 
                         <div>
-                            <h3 className="text-xl font-black text-white uppercase tracking-tight">{profileModalUser.username}</h3>
+                            <h3 className="text-xl font-black text-white uppercase tracking-tight">{profileModalUser.username || profileModalUser.email.split('@')[0]}</h3>
                             <p className="text-[10px] font-black uppercase tracking-widest text-white/30 mt-1">Tactical Operative</p>
                         </div>
 
@@ -934,7 +861,8 @@ const StudyTalks: React.FC = () => {
                                 </button>
                                 <button 
                                     onClick={() => {
-                                        if (confirm(`Block ${profileModalUser.username}? Communication will be severed.`)) {
+                                        const displayName = profileModalUser.username || profileModalUser.email.split('@')[0];
+                                        if (confirm(`Block ${displayName}? Communication will be severed.`)) {
                                             const chatId = [user?.uid, profileModalUser.id].sort().join('_');
                                             updateDoc(doc(db, 'private_chats', chatId), { blockedBy: user?.uid });
                                             setProfileModalUser(null);

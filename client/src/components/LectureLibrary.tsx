@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Play, Search, Video, List } from 'lucide-react';
 
 export const LectureLibrary: React.FC = () => {
+    const [lectureSearch, setLectureSearch] = React.useState('');
     return (
         <div className="space-y-4">
              <div className="bg-white dark:bg-zinc-900 p-6 rounded-[32px] border border-line dark:border-white/10 shadow-sm space-y-4">
@@ -17,6 +18,8 @@ export const LectureLibrary: React.FC = () => {
                     <input 
                         type="search" 
                         placeholder="Search curated lectures..."
+                        value={lectureSearch}
+                        onChange={(e) => setLectureSearch(e.target.value)}
                         className="w-full p-4 pl-12 bg-slate-50 dark:bg-zinc-800 rounded-2xl outline-none focus:bg-white dark:focus:bg-black border-2 border-transparent focus:border-red-400 font-bold transition-all dark:text-white"
                     />
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />

@@ -69,5 +69,14 @@ export const dataSync = {
     } catch (e) {
       console.error('Update moderation failed:', e);
     }
+  },
+
+  async saveUserData(uid: string, data: any) {
+    try {
+      const userRef = doc(db, 'users', uid);
+      await setDoc(userRef, { data }, { merge: true });
+    } catch (e) {
+      console.error('Save data failed:', e);
+    }
   }
 };

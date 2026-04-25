@@ -1,0 +1,33 @@
+name: Deploy to Firebase
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Client Dependencies
+        run: npm ci
+        working-directory: client
+
+      - name: Build Client
+        run: npm run build
+        working-directory: client
+        env:
+          NODE_ENV: production
+
+      - name: Install Functions Dependencies
+        run: npm ci
+        working-directory: functions
+
+      - name: Deploy to Firebase
+        uses: w9jds/firebase-action@master
+        with:
+          args: deploy --only hosting,functions
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}

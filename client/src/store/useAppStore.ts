@@ -34,7 +34,7 @@ export interface Note {
 }
 
 interface AppState {
-  user: { uid: string; email: string | null } | null;
+  user: { uid: string; email: string | null; username?: string; photoURL?: string } | null;
   theme: 'light' | 'dark';
   streak: number;
   lastLoginDate: string | null;

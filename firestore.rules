@@ -42,22 +42,18 @@ service cloud.firestore {
 
     // --- Users Collection ---
     match /users/{userId} {
-      allow get: if isSignedIn() && isValidId(userId);
+      allow get: if isSignedIn();
       allow list: if isSignedIn();
-      
-      // Profiles
       allow create: if isOwner(userId);
-      
       allow update: if isOwner(userId) && (
-        // Action: Presence Sync (Fast Path)
-        incoming().diff(existing()).affectedKeys().hasAny(['isOnline', 'lastActive', 'activeChatId']) ||
-        // Action: Profile Update (Stats, Streak, Connections, Username)
-        incoming().diff(existing()).affectedKeys().hasAny(['streak', 'lastLoginDate', 'dailyMessageCount', 'lastMessageDate', 'connections', 'username']) ||
-        // Action: Moderation alerts (Semi-automated)
-        incoming().diff(existing()).affectedKeys().hasOnly(['nameChangeHistory', 'moderation'])
+        // Action: Presence
+        incoming().diff(existing()).affectedKeys().hasOnly(['isOnline', 'lastActive', 'activeChatId']) ||
+        // Action: Profile
+        incoming().diff(existing()).affectedKeys().hasOnly(['username', 'email']) ||
+        // Action: Stats
+        incoming().diff(existing()).affectedKeys().hasOnly(['streak', 'lastLoginDate', 'dailyMessageCount', 'lastMessageDate', 'connections'])
       ) || isAdmin();
 
-      // Sub-collections: owner or admin access
       match /{allSubcollections=**} {
         allow read, write: if isOwner(userId) || isAdmin();
       }
@@ -65,13 +61,10 @@ service cloud.firestore {
 
     // --- Community Chat ---
     match /community_chat/{messageId} {
-      allow list: if isSignedIn();
-      allow get: if isSignedIn();
-      
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && 
                     incoming().userId == request.auth.uid &&
                     incoming().text is string && incoming().text.size() <= 2000;
-                    
       allow update: if isSignedIn() && (
         (existing().userId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasAny(['text', 'isEdited', 'isDeleted'])) ||
         isAdmin()
@@ -79,41 +72,25 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
     }
 
-    // --- Message Requests (Admin Only) ---
-    match /message_requests/{reqId} {
-      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
-      allow read, update, delete: if isAdmin();
-    }
-
-    // --- Chat Archives (System/Admin) ---
-    match /chat_archives/{archiveId} {
-      allow list, get: if isAdmin();
-      allow create: if isSignedIn(); // Allow user to archive their own deletions
-      allow update, delete: if isAdmin();
-    }
-
     // --- Private Chats ---
     match /private_chats/{chatId} {
-      function isParticipant() { return request.auth.uid in existing().participants; }
-      function isInitialParticipant() { return request.auth.uid in incoming().participants; }
-
-      allow read: if isSignedIn() && isParticipant();
-      allow create: if isSignedIn() && isInitialParticipant();
-      allow update: if isSignedIn() && (isParticipant() || isAdmin());
+      function getParticipants() {
+        return resource.data.participants;
+      }
+      allow read: if isSignedIn() && (request.auth.uid in getParticipants());
+      allow create: if isSignedIn() && (request.auth.uid in incoming().participants);
+      allow update: if isSignedIn() && (request.auth.uid in getParticipants());
       
       match /messages/{messageId} {
-        function getParticipants() { return get(/databases/$(database)/documents/private_chats/$(chatId)).data.participants; }
-
-        allow read: if isSignedIn() && (request.auth.uid in getParticipants());
-        
+        function getParentParticipants() {
+            return get(/databases/$(database)/documents/private_chats/$(chatId)).data.participants;
+        }
+        allow read: if isSignedIn() && (request.auth.uid in getParentParticipants());
         allow create: if isSignedIn() && 
-                      (request.auth.uid in getParticipants()) &&
+                      (request.auth.uid in getParentParticipants()) &&
                       incoming().userId == request.auth.uid;
-        
         allow update: if isSignedIn() && (
-           // Action: Mark Status
-           (request.auth.uid in getParticipants() && incoming().diff(existing()).affectedKeys().hasOnly(['status'])) ||
-           // Action: Edit/Soft Delete
+           (request.auth.uid in getParentParticipants() && incoming().diff(existing()).affectedKeys().hasOnly(['status'])) ||
            (existing().userId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasAny(['text', 'isEdited', 'isDeleted'])) ||
            isAdmin()
         );

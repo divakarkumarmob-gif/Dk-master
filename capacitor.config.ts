@@ -3,7 +3,7 @@ import { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.neetpreppro.app',
   appName: 'NEET Prep Pro',
-  webDir: 'client/dist',
+  webDir: 'dist',
   server: {
     androidScheme: 'https'
   }

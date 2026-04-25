@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Brain, MessageSquare, Sparkles } from 'lucide-react';
 
 export const ConceptBot: React.FC = () => {
+    const [conceptQuery, setConceptQuery] = React.useState('');
     return (
         <div className="bg-white dark:bg-zinc-900 p-6 rounded-[32px] border-2 border-slate-100 dark:border-white/10 space-y-4">
             <div className="flex items-center gap-3">
@@ -21,6 +22,8 @@ export const ConceptBot: React.FC = () => {
                 <input 
                     type="text" 
                     placeholder="Enter concept (e.g. Krebs Cycle)"
+                    value={conceptQuery}
+                    onChange={(e) => setConceptQuery(e.target.value)}
                     className="w-full p-4 pr-12 bg-white dark:bg-zinc-800 border-2 border-slate-100 dark:border-white/10 rounded-2xl outline-none focus:border-indigo-400 font-bold text-sm transition-all shadow-sm dark:text-white"
                 />
                 <button className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg transform active:scale-90">
