@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1087967978698",
+    "project_id": "gen-lang-client-0339986798",
+    "storage_bucket": "gen-lang-client-0339986798.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1087967978698:android:6aa93bd928bc2d4b7e4033",
+        "android_client_info": {
+          "package_name": "com.neetpreppro.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1087967978698-vc0vo7c1ceipfelj3vlpv57n1n75q5d6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBDDF1uFVQhGh7bhwu6fZhvNVAy3H0X91g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1087967978698-vc0vo7c1ceipfelj3vlpv57n1n75q5d6.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
