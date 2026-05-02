@@ -5,8 +5,6 @@ import {
   BarChart2, 
   BookOpen, 
   Settings as SettingsIcon,
-  User,
-  MessageCircle,
 } from 'lucide-react';
 import { useAppStore, Question } from './store/useAppStore';
 import { cn } from './lib/utils';
@@ -21,7 +19,6 @@ import AnalysisScreen from './pages/AnalysisScreen';
 import NotesScreen from './pages/NotesScreen';
 import SettingsScreen from './pages/SettingsScreen';
 import DailyTestScreen from './pages/DailyTestScreen';
-import StudyTalks from './components/StudyTalks';
 import AdminDashboard from './pages/AdminDashboard';
 import StudyMaterialsScreen from './pages/StudyMaterialsScreen';
 import SplashScreen from './components/SplashScreen';
@@ -39,12 +36,10 @@ export default function App() {
     chapter?: string;
     questions?: Question[];
   } | null>(() => {
-    // Restore state from localStorage on init
     try {
       const saved = localStorage.getItem('activeTest');
       if (!saved) return null;
       const parsed = JSON.parse(saved);
-      // Safety: If it's the bugged 'Custom' type, discard it
       if (parsed.type === 'Custom') {
         localStorage.removeItem('activeTest');
         return null;
@@ -55,6 +50,7 @@ export default function App() {
     }
   });
 
+  // ... (rest of the component)
   // Debounced Sync to Firebase Firestore
   useEffect(() => {
     if (!user) return;
@@ -68,7 +64,6 @@ export default function App() {
   }, [results, notes, starredQuestions, mistakeVault, chatHistory, streak, lastLoginDate, user]);
 
   useEffect(() => {
-    // Save state to localStorage whenever it changes
     if (activeTest) {
       localStorage.setItem('activeTest', JSON.stringify(activeTest));
     } else {
@@ -80,7 +75,6 @@ export default function App() {
     const handlePopState = (event: PopStateEvent) => {
       if (activeTest) {
         event.preventDefault();
-        // Prevent back from exiting app, close test instead
         setActiveTest(null);
         window.history.pushState(null, '', window.location.href);
       }
@@ -97,7 +91,6 @@ export default function App() {
   }, [activeTest]);
 
   useEffect(() => {
-    // Sync theme with HTML element for Tailwind dark mode
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
@@ -109,7 +102,6 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
-    // Force Home tab on app launch as per user request
     setActiveTab('home');
     
     const timer = setTimeout(() => setShowSplash(false), 1000);
@@ -121,7 +113,6 @@ export default function App() {
   }, [activeTab]);
 
   useEffect(() => {
-    // Initial cleanup
     cleanupOldChatHistory();
   }, []);
 
@@ -131,23 +122,18 @@ export default function App() {
         setUser({ uid: firebaseUser.uid, email: firebaseUser.email });
         updateStreak();
 
-        // ☁️ Restore Cloud Data
         setIsSyncing(true);
         try {
           const { dataSync } = await import('./services/dataSync');
           
-          // Initial presence update
           dataSync.updateUserPresence(firebaseUser.uid, true);
 
           const cloudData = await dataSync.fetchUserData(firebaseUser.uid);
           if (cloudData) {
-            // Point 3 Fix: Merge Cloud Data with Local Data instead of overwriting
-            // This prevents losing data created while offline
             const currentState = useAppStore.getState();
             
             const mergeById = (local: any[], cloud: any[]) => {
               const cloudIds = new Set(cloud.map(i => i.id));
-              // Keep items that are only in local (newly created offline) + all cloud items
               return [
                 ...local.filter(i => !cloudIds.has(i.id)),
                 ...cloud
@@ -180,7 +166,6 @@ export default function App() {
       }
     });
 
-    // Cleanup: Mark offline when window closes
     const handleUnload = () => {
         if (auth.currentUser) {
             const userRef = doc(db, 'users', auth.currentUser.uid);
@@ -195,14 +180,12 @@ export default function App() {
     };
   }, []);
 
-  // Heartbeat Presence Effect (Optimized for Battery/Data)
   useEffect(() => {
     if (!user?.uid) return;
     
     let interval: NodeJS.Timeout;
 
     const startHeartbeat = () => {
-      // Immediate update on focus
       import('./services/dataSync').then(({ dataSync }) => {
         dataSync.updateUserPresence(user.uid, true);
       });
@@ -212,7 +195,7 @@ export default function App() {
           const { dataSync } = await import('./services/dataSync');
           dataSync.updateUserPresence(user.uid, true);
         }
-      }, 90000); // Increased to 1.5 mins to save battery (still within 2min offline threshold)
+      }, 90000);
     };
 
     const handleVisibilityChange = () => {
@@ -220,7 +203,6 @@ export default function App() {
         startHeartbeat();
       } else {
         clearInterval(interval);
-        // Mark as offline in cloud after a small delay to allow for quick app switching
         setTimeout(() => {
            if (document.visibilityState !== 'visible') {
              import('./services/dataSync').then(({ dataSync }) => {
@@ -253,7 +235,7 @@ export default function App() {
 
   return (
     <div className={cn(
-        (activeTab === 'chat' || activeTab === 'admin') ? "h-[100dvh] overflow-hidden" : "min-h-screen",
+        (activeTab === 'admin') ? "h-[100dvh] overflow-hidden" : "min-h-screen",
         "flex flex-col", 
         theme === 'dark' ? 'dark' : ''
     )}>
@@ -261,6 +243,8 @@ export default function App() {
         {showSplash && <SplashScreen key="splash" />}
       </AnimatePresence>
       
+      <div className="hidden">
+      </div>
       <InstallPwa />
       <OfflineManager />
       <Toast />
@@ -269,13 +253,12 @@ export default function App() {
 
       <div className={cn(
           "flex-1 flex flex-col relative bg-inherit",
-          (activeTab === 'chat' || activeTab === 'admin') ? "overflow-hidden" : ""
+          (activeTab === 'admin') ? "overflow-hidden" : ""
       )}>
-        
         <main className={cn(
-            "flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 flex flex-col",
-            (activeTab === 'chat' || activeTab === 'admin') ? "overflow-hidden" : "",
-            "pt-6 pb-[80px]"
+            "flex-1 w-full max-w-7xl mx-auto px-2 sm:px-6 flex flex-col",
+            (activeTab === 'admin') ? "overflow-hidden" : "",
+            "pt-6 pb-[90px]"
         )}>
           <AnimatePresence mode="wait">
             {activeTab === 'home' && (
@@ -286,9 +269,6 @@ export default function App() {
             )}
             {activeTab === 'notes' && (
               <NotesScreen key="notes" />
-            )}
-            {activeTab === 'chat' && (
-              <StudyTalks key="chat" />
             )}
             {activeTab === 'admin' && (
               <AdminDashboard key="admin" />
@@ -301,8 +281,12 @@ export default function App() {
             )}
           </AnimatePresence>
         </main>
-
-        <nav className="fixed bottom-0 left-0 right-0 h-[64px] bg-white dark:bg-slate-950 border-t border-black/5 dark:border-white/20 flex justify-around items-center px-4 pb-2 z-50">
+        
+        <motion.nav 
+          drag="y"
+          dragConstraints={{ top: -200, bottom: 0 }}
+          className="fixed bottom-4 left-2 right-2 sm:left-4 sm:right-4 h-[60px] bg-white dark:bg-slate-950 border border-black/5 dark:border-white/20 rounded-2xl flex justify-around items-center px-2 z-50 shadow-2xl"
+        >
           <TabButton 
             active={activeTab === 'home'} 
             onClick={() => setActiveTab('home')} 
@@ -322,18 +306,12 @@ export default function App() {
             label="Notes" 
           />
           <TabButton 
-            active={activeTab === 'chat'} 
-            onClick={() => setActiveTab('chat')} 
-            icon={<MessageCircle size={18} />} 
-            label="Talks" 
-          />
-          <TabButton 
             active={activeTab === 'settings'} 
             onClick={() => setActiveTab('settings')} 
             icon={<SettingsIcon size={18} />} 
             label="Settings" 
           />
-        </nav>
+        </motion.nav>
       </div>
     </div>
   );
@@ -369,4 +347,6 @@ function TabButton({ active, onClick, icon, label }: { active: boolean, onClick:
     </motion.button>
   );
 }
+
+
 

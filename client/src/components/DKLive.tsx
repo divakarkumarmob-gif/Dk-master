@@ -84,16 +84,17 @@ export const DKLive: React.FC = () => {
   }, [controls]);
 
   return (
-    <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-[100] p-4 bottom-[72px]">
+    <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-[100] px-2 pt-2 pb-[calc(env(safe-area-inset-bottom)+70px)]">
       <motion.div 
         drag
         dragConstraints={constraintsRef}
-        dragElastic={0}
+        dragElastic={0.1}
         dragMomentum={false}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         animate={controls}
-        className="absolute bottom-20 left-4 pointer-events-auto cursor-grab active:cursor-grabbing"
+        initial={{ y: 0 }}
+        className="absolute bottom-24 left-4 pointer-events-auto cursor-grab active:cursor-grabbing"
       >
         <div className={cn(
           "flex flex-col items-center gap-3",
@@ -221,30 +222,30 @@ export const DKLive: React.FC = () => {
               }}
               onClick={() => setIsOpen(!isOpen)}
               className={cn(
-                "relative w-16 h-16 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(0,0,0,0.5)] z-10 transition-transform",
+                "relative w-12 h-12 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(0,0,0,0.5)] z-10 transition-transform",
                 side === 'left' ? "order-1" : "order-2"
               )}
             >
               {/* RGB Periphery Animation */}
-              <div className="absolute inset-[-4px] rounded-full overflow-hidden opacity-80 group-hover:opacity-100">
+              <div className="absolute inset-[-3px] rounded-full overflow-hidden opacity-80 group-hover:opacity-100">
                 <div className="absolute inset-0 animate-[spin_3s_linear_infinite] bg-[conic-gradient(from_0deg,#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)]" />
               </div>
 
               {/* Inner Circle with Gradient */}
               <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-900 via-purple-700 to-pink-800 flex items-center justify-center border-2 border-white/20">
                 {isOpen ? (
-                  <X size={24} className="text-white" />
+                  <X size={18} className="text-white" />
                 ) : (
                   <div className="relative">
-                    <Mic size={28} className="text-white" />
-                    <Sparkles size={14} className="text-white absolute -top-1 -right-1 animate-pulse" />
+                    <Mic size={20} className="text-white" />
+                    <Sparkles size={10} className="text-white absolute -top-1 -right-1 animate-pulse" />
                   </div>
                 )}
               </div>
 
               {/* Status Indicator */}
               {!isOpen && (
-                <div className="absolute top-1 right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-slate-900 z-20" />
+                <div className="absolute top-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-slate-900 z-20" />
               )}
             </motion.button>
           </div>

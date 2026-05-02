@@ -15,3 +15,12 @@ export function getEmailPrefix(email: string | null | undefined, fallback: strin
     if (!email || typeof email !== 'string') return fallback;
     return email.split('@')[0] || fallback;
 }
+
+export function normalizeTimestamp(ts: any): number {
+  if (!ts) return 0;
+  if (typeof ts.toMillis === "function") return ts.toMillis();
+  if (ts instanceof Date) return ts.getTime();
+  if (typeof ts === "number") return ts;
+  if (ts.seconds) return ts.seconds * 1000;
+  return 0;
+}

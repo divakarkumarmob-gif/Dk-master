@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/firebase';
 import { collection, onSnapshot, query, deleteDoc, doc, getDocs } from 'firebase/firestore';
-import { cn } from '../lib/utils';
+import { cn, normalizeTimestamp } from '../lib/utils';
 import { Trash2, AlertCircle, Shield, Bell, Pencil, Ban, Trash2 as TrashIcon, BookOpen, Bug } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { dataSync } from '../services/dataSync';
@@ -163,7 +163,7 @@ export default function AdminDashboard() {
                   <div key={alert.id} className="bg-white p-4 rounded-2xl shadow-sm border border-orange-100">
                       <div className="flex justify-between items-start mb-2">
                           <span className="text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-bold">Name Change</span>
-                          <span className="text-[10px] text-slate-400">{new Date(alert.timestamp).toLocaleString()}</span>
+                          <span className="text-[10px] text-slate-400">{new Date(normalizeTimestamp(alert.timestamp)).toLocaleString()}</span>
                       </div>
                       <div className="flex items-center gap-2">
                           <span className="text-slate-400 line-through text-sm">{alert.oldName}</span>
@@ -196,7 +196,7 @@ export default function AdminDashboard() {
                 <div key={arch.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
                   <div>
                     <p className="font-bold text-sm text-slate-800">{arch.text}</p>
-                    <p className="text-[10px] text-slate-400">Deleted: {new Date(arch.timestamp).toLocaleString()}</p>
+                    <p className="text-[10px] text-slate-400">Deleted: {new Date(normalizeTimestamp(arch.timestamp)).toLocaleString()}</p>
                   </div>
                   <button onClick={() => deleteArchive(arch.id)} className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 text-xs font-bold">Delete Forever</button>
                 </div>
@@ -214,7 +214,7 @@ export default function AdminDashboard() {
                 <div key={log.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
                   <div>
                     <p className="font-bold text-sm text-slate-800">{log.message}</p>
-                    <p className="text-[10px] text-slate-400">{new Date(log.timestamp).toLocaleString()}</p>
+                    <p className="text-[10px] text-slate-400">{new Date(normalizeTimestamp(log.timestamp)).toLocaleString()}</p>
                   </div>
                   <button onClick={() => deleteErrorLog(log.id)} className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 text-xs font-bold">Delete</button>
                 </div>

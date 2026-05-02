@@ -12,7 +12,7 @@ import {
   Line
 } from 'recharts';
 import { useAppStore, TestResult } from '../store/useAppStore';
-import { cn } from '../lib/utils';
+import { cn, normalizeTimestamp } from '../lib/utils';
 import { format, differenceInMinutes, differenceInSeconds } from 'date-fns';
 import { ChevronRight, Filter, TrendingUp, AlertCircle, Info, Brain, CheckCircle2, Sparkles, Loader2, Clock, Star, Flame, Zap, History as HistoryIcon } from 'lucide-react';
 import { geminiService } from '../services/gemini';
@@ -32,14 +32,14 @@ const AnalysisScreen: React.FC = () => {
   const filteredResults = useMemo(() => {
     return results
       .filter(r => filter === 'All' || r.type === filter)
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      .sort((a, b) => normalizeTimestamp(b.timestamp) - normalizeTimestamp(a.timestamp));
   }, [results, filter]);
 
   const chartData = useMemo(() => {
     return results
       .slice(-7)
       .map(r => ({
-        date: format(new Date(r.timestamp), 'dd/MM'),
+        date: format(new Date(normalizeTimestamp(r.timestamp)), 'dd/MM'),
         score: r.score
       }));
   }, [results]);
@@ -216,7 +216,7 @@ const HistoryCard: React.FC<{ result: TestResult, onOpen: (r: TestResult) => voi
 
   useEffect(() => {
     const calculateTime = () => {
-      const lockStartTime = new Date(result.timestamp).getTime();
+      const lockStartTime = normalizeTimestamp(result.timestamp);
       const lockEndTime = lockStartTime + (2 * 60 * 1000);
       const diff = Math.floor((lockEndTime - Date.now()) / 1000);
       const remaining = Math.max(0, diff);
@@ -248,7 +248,7 @@ const HistoryCard: React.FC<{ result: TestResult, onOpen: (r: TestResult) => voi
         <div>
           <p className="text-sm font-bold text-black dark:text-white">{result.type} Test: {result.subject || 'Final'}</p>
           <div className="flex items-center gap-2">
-            <p className="text-[10px] text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider">{format(new Date(result.timestamp), 'dd MMM • hh:mm a')}</p>
+            <p className="text-[10px] text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider">{format(new Date(normalizeTimestamp(result.timestamp)), 'dd MMM • hh:mm a')}</p>
             {isCurrentlyLocked && (
               <div className="flex items-center gap-1 bg-orange-accent animate-pulse px-1.5 py-0.5 rounded text-white transform scale-90">
                 <Clock size={8} />
