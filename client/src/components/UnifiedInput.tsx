@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Plus, Smile, Send, Camera, Image, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 import { cn } from '../lib/utils';
 
 interface UnifiedInputProps {
@@ -12,6 +13,7 @@ interface UnifiedInputProps {
 export const UnifiedInput: React.FC<UnifiedInputProps> = ({ onSend, placeholder = "Ask something...", disabled }) => {
   const [text, setText] = useState("");
   const [showPlusMenu, setShowPlusMenu] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -21,7 +23,12 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({ onSend, placeholder 
     if (text.trim() && !disabled) {
       onSend(text);
       setText("");
+      setShowEmojiPicker(false);
     }
+  };
+
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
+    setText(prev => prev + emojiData.emoji);
   };
 
   return (
@@ -70,12 +77,28 @@ export const UnifiedInput: React.FC<UnifiedInputProps> = ({ onSend, placeholder 
         />
 
         {/* Emoji Button */}
-        <button 
-          type="button"
-          className="text-white/60 hover:text-white transition-colors"
-        >
-          <Smile size={24} />
-        </button>
+        <div className="relative">
+          <button 
+            type="button"
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            className={cn("text-white/60 hover:text-white transition-colors", showEmojiPicker && "text-white")}
+          >
+            <Smile size={24} />
+          </button>
+          
+          <AnimatePresence>
+            {showEmojiPicker && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                animate={{ opacity: 1, y: -10, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                className="absolute bottom-full right-0 mb-4 z-50"
+              >
+                  <EmojiPicker onEmojiClick={handleEmojiClick} theme={'dark' as any} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Send Button */}

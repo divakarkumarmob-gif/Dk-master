@@ -28,7 +28,7 @@ const CONFIG = {
   }
 };
 
-class AIManager {
+export class AIManager {
   private static instance: AIManager;
   private memoryCache = new Map<string, { data: any; expiry: number }>();
   private pendingRequests = new Map<string, Promise<any>>();
@@ -248,7 +248,7 @@ class AIManager {
 const manager = AIManager.getInstance();
 
 // Helper to call server AI
-async function callServerAI(path: string, body: any) {
+export async function callServerAI(path: string, body: any) {
     // For APK/Mobile, we might need a full URL. We use VITE_API_BASE_URL if provided.
     const baseUrl = (import.meta as any).env.VITE_API_BASE_URL || '';
     const fullPath = `${baseUrl}${path}`;

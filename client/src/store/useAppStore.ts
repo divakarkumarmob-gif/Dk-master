@@ -12,7 +12,7 @@ export interface Question {
 export interface TestResult {
   id: string;
   timestamp: string;
-  type: 'Minor' | 'Major';
+  type: 'Minor' | 'Major' | 'Custom';
   subject?: string;
   chapter?: string;
   score: number;
@@ -48,7 +48,7 @@ interface AppState {
   toast: { message: string; type: 'success' | 'error' | 'info' } | null;
   errorLogs: any[];
   
-  setUser: (user: { uid: string; email: string | null } | null) => void;
+  setUser: (user: { uid: string; email: string | null; username?: string; photoURL?: string } | null) => void;
   setTheme: (theme: 'light' | 'dark') => void;
   setActiveTab: (tab: string) => void;
   setFullState: (state: Partial<AppState>) => void;

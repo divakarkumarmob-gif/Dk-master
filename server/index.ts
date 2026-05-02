@@ -1,8 +1,5 @@
 import express from "express";
 import cors from "cors";
-import path from "path";
-import { createServer as createViteServer } from "vite";
-import fs from "fs-extra";
 import dotenv from "dotenv";
 import nodemailer from "nodemailer";
 import { initializeApp, cert } from 'firebase-admin/app';
@@ -13,7 +10,13 @@ dotenv.config();
 
 const app = express();
 
-app.use(cors());
+// CORS needs to be configured for the Vercel frontend URL
+const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['http://localhost:5173']; // Default for dev
+app.use(cors({
+    origin: allowedOrigins,
+    credentials: true
+}));
+
 app.use(express.json());
 
 // Initialize Firebase Admin (lazy load or check if env vars exist)
@@ -133,48 +136,8 @@ app.post("/api/auth/set-password", async (req, res) => {
     }
 });
 
-async function setupServer() {
-  const isProd = process.env.NODE_ENV === "production";
-  console.log(`Starting server in ${isProd ? 'production' : 'development'} mode...`);
+const PORT = process.env.PORT || 3000;
 
-  // Vite middleware for development
-  if (!isProd) {
-    try {
-      console.log("Initializing Vite dev server...");
-      const vite = await createViteServer({
-        server: { middlewareMode: true },
-        appType: "spa",
-        root: path.resolve(process.cwd(), "client"),
-      });
-      app.use(vite.middlewares);
-      console.log("Vite middleware attached.");
-    } catch (e) {
-      console.error("Vite server failed to start:", e);
-    }
-  } else {
-    const distPath = path.resolve(process.cwd(), "client/dist");
-    console.log(`Looking for production files at: ${distPath}`);
-    if (await fs.pathExists(distPath)) {
-      console.log("Production files found. Serving from dist.");
-      app.use(express.static(distPath));
-      app.get("*all", (req, res) => {
-        res.sendFile(path.join(distPath, "index.html"));
-      });
-    } else {
-      console.error(`ERROR: Production path ${distPath} does not exist!`);
-    }
-  }
-
-  const PORT = 3000;
-
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server is LIVE on port ${PORT}`);
-    console.log(`Health check available at: /api/health`);
-    console.log(`Public URL should point to port: ${PORT}`);
-  });
-}
-
-setupServer().catch(err => {
-  console.error("Critical server startup error:", err);
-  process.exit(1);
+app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Backend Server is LIVE on port ${PORT}`);
 });

@@ -21,7 +21,7 @@ import {
   updateDoc,
   deleteDoc
 } from 'firebase/firestore';
-import { cn } from '../lib/utils';
+import { cn, getEmailPrefix } from '../lib/utils';
 
 interface ChatMessage {
   id: string;
@@ -103,7 +103,7 @@ const StudyTalks: React.FC = () => {
         userEmail: user.email,
         timestamp: serverTimestamp()
       });
-      alert(`Report submitted for ${targetUser.username || targetUser.email.split('@')[0]}. Tactical scan initiated.`);
+      alert(`Report submitted for ${targetUser.username || getEmailPrefix(targetUser.email)}. Tactical scan initiated.`);
     } catch (e) {
       console.error(e);
     }
@@ -230,8 +230,8 @@ const StudyTalks: React.FC = () => {
         id: doc.id,
         ...doc.data()
       })) as ChatMessage[];
-      // Reverse to show oldest first at top, newest at bottom
-      setMessages(msgs.reverse());
+      // Sort to show oldest first at top
+      setMessages(msgs.sort((a, b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0)));
       setIsLoading(false);
       scrollToBottom();
     }, (error) => {
@@ -272,8 +272,8 @@ const StudyTalks: React.FC = () => {
         id: doc.id,
         ...doc.data()
       })) as ChatMessage[];
-      // Reverse to show oldest first at top, newest at bottom
-      setMessages(msgs.reverse());
+      // Sort to show oldest first at top
+      setMessages(msgs.sort((a, b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0)));
       setIsLoading(false);
       scrollToBottom();
     }, (error) => {
@@ -319,18 +319,23 @@ const StudyTalks: React.FC = () => {
     return () => unsubscribe();
   }, [user]);
 
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      if (scrollRef.current) {
+  // Scroll to bottom when messages update
+  useEffect(() => {
+    if (scrollRef.current) {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-      }
-    }, 100);
+    }
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
   };
 
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || !user || isBlocked) return;
 
-    const username = currentUserProfile?.username || user.email?.split('@')[0] || 'Anonymous';
+    const username = currentUserProfile?.username || getEmailPrefix(user.email);
 
     try {
       if (activeChannel === 'community') {
@@ -437,7 +442,7 @@ const StudyTalks: React.FC = () => {
         status: 'pending',
         createdAt: serverTimestamp()
       });
-      alert(`Request sent to ${targetUser.username || targetUser.email.split('@')[0]}`);
+      alert(`Request sent to ${targetUser.username || getEmailPrefix(targetUser.email)}`);
     } catch (e) {
       console.error(e);
     }
@@ -524,7 +529,7 @@ const StudyTalks: React.FC = () => {
           </button>
           <div>
             <h2 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight">
-                {selectedUser ? selectedUser.email.split('@')[0] : (activeChannel === 'community' ? 'COMMUNITY HUB' : activeChannel === 'requests' ? 'NEURAL REQUESTS' : 'DIRECT STREAM')}
+                {selectedUser ? getEmailPrefix(selectedUser.email) : (activeChannel === 'community' ? 'COMMUNITY HUB' : activeChannel === 'requests' ? 'NEURAL REQUESTS' : 'DIRECT STREAM')}
             </h2>
             <div className="flex items-center gap-1.5 mt-0.5">
                 <div className={cn("w-1.5 h-1.5 rounded-full", activeChannel === 'community' ? "bg-emerald-400 animate-pulse" : "bg-blue-400")} />
@@ -607,7 +612,7 @@ const StudyTalks: React.FC = () => {
                                     <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-500">
                                         <User size={20} />
                                     </div>
-                                    <p className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-tight">{req.fromEmail.split('@')[0]}</p>
+                                    <p className="text-[10px] font-black text-slate-800 dark:text-white uppercase tracking-tight">{getEmailPrefix(req.fromEmail)}</p>
                                 </div>
                                 <div className="flex gap-2">
                                     <button 
@@ -665,7 +670,7 @@ const StudyTalks: React.FC = () => {
                                             <p className={cn(
                                                 "text-sm font-black uppercase tracking-tight truncate",
                                                 connected ? "text-slate-800 dark:text-white" : "text-slate-400"
-                                            )}>{u.email.split('@')[0]}</p>
+                                            )}>{getEmailPrefix(u.email)}</p>
                                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
                                                 {connected ? (u.isOnline ? 'Online Link' : 'Dormant') : 'Manual Auth Required'}
                                             </p>
@@ -718,21 +723,12 @@ const StudyTalks: React.FC = () => {
                                     >
                                         {!isMe && activeChannel === 'community' && (
                                             <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1.5 ml-1">
-                                                {msg.username || msg.userEmail.split('@')[0]}
+                                                {msg.username || getEmailPrefix(msg.userEmail)}
                                             </span>
                                         )}
                                         <div 
-                                            onContextMenu={(e) => {
-                                                e.preventDefault();
-                                                if (isMe && !msg.isDeleted) handleDeleteMessage(msg);
-                                                else if (!isMe) openUserProfile(msg.userId);
-                                            }}
-                                            onClick={() => {
-                                                if (isMe && !msg.isDeleted) setEditingMessage(msg);
-                                                else if (!isMe) openUserProfile(msg.userId);
-                                            }}
                                             className={cn(
-                                                "p-4 rounded-[26px] shadow-sm relative overflow-hidden",
+                                                "p-4 rounded-[26px] shadow-sm relative overflow-hidden flex flex-col group",
                                                 msg.isDeleted ? "opacity-40 italic bg-slate-200 dark:bg-zinc-900 border-dashed border-2" :
                                                 isMe 
                                                     ? (activeChannel === 'community' ? "bg-orange-accent text-white rounded-tr-none shadow-orange-500/10" : "bg-black dark:bg-white text-white dark:text-black rounded-tr-none")
@@ -745,6 +741,13 @@ const StudyTalks: React.FC = () => {
                                             
                                             {msg.isEdited && !msg.isDeleted && (
                                                 <span className="text-[7px] uppercase font-black opacity-50 mt-1 block">Edited</span>
+                                            )}
+
+                                            {!msg.isDeleted && isMe && (
+                                                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => setEditingMessage(msg)} className="text-[9px] bg-black/20 px-2 py-0.5 rounded-full">Edit</button>
+                                                    <button onClick={() => handleDeleteMessage(msg)} className="text-[9px] bg-black/20 px-2 py-0.5 rounded-full">Del</button>
+                                                </div>
                                             )}
                                         </div>
 
@@ -817,11 +820,11 @@ const StudyTalks: React.FC = () => {
                 exit={{ opacity: 0 }}
                 className="fixed inset-0 bg-slate-950/90 z-[110] flex items-center justify-center p-6 backdrop-blur-xl"
             >
-                <div className="absolute inset-0" onClick={() => setProfileModalUser(null)} />
+                <div className="absolute inset-0 z-0" onClick={() => setProfileModalUser(null)} />
                 <motion.div 
                     initial={{ scale: 0.9, y: 20 }}
                     animate={{ scale: 1, y: 0 }}
-                    className="w-full max-w-sm bg-slate-900 border border-white/10 p-8 rounded-[40px] shadow-2xl relative z-10 overflow-hidden"
+                    className="w-full max-w-sm bg-slate-900 border border-white/10 p-8 rounded-[40px] shadow-2xl relative z-20 overflow-hidden"
                 >
                     <div className="absolute top-0 right-0 p-6">
                         <button onClick={() => setProfileModalUser(null)} className="text-white/40 hover:text-white"><X size={20} /></button>
@@ -840,13 +843,16 @@ const StudyTalks: React.FC = () => {
                         </div>
 
                         <div>
-                            <h3 className="text-xl font-black text-white uppercase tracking-tight">{profileModalUser.username || profileModalUser.email.split('@')[0]}</h3>
+                            <h3 className="text-xl font-black text-white uppercase tracking-tight">{profileModalUser.username || getEmailPrefix(profileModalUser.email)}</h3>
                             <p className="text-[10px] font-black uppercase tracking-widest text-white/30 mt-1">Tactical Operative</p>
                         </div>
 
                         <div className="grid grid-cols-1 gap-3">
                             <button 
-                                onClick={() => initiateChatFromProfile(profileModalUser)}
+                                onClick={() => {
+                                    console.log("Establish Link clicked");
+                                    initiateChatFromProfile(profileModalUser);
+                                }}
                                 className="w-full bg-orange-accent p-4 rounded-2xl flex items-center justify-center gap-3 font-black text-xs uppercase tracking-widest text-white shadow-lg active:scale-95 transition-transform"
                             >
                                 <MessageCircle size={16} /> Establish Link
@@ -854,14 +860,18 @@ const StudyTalks: React.FC = () => {
                             
                             <div className="grid grid-cols-2 gap-3">
                                 <button 
-                                    onClick={() => sendFriendRequest(profileModalUser)}
+                                    onClick={() => {
+                                        console.log("Add Target clicked");
+                                        sendFriendRequest(profileModalUser);
+                                    }}
                                     className="bg-white/5 p-4 rounded-2xl flex items-center justify-center gap-2 font-black text-[9px] uppercase tracking-widest text-white/80 hover:bg-white/10 transition-colors"
                                 >
                                     <UserPlus size={14} /> Add Target
                                 </button>
                                 <button 
                                     onClick={() => {
-                                        const displayName = profileModalUser.username || profileModalUser.email.split('@')[0];
+                                        console.log("Block clicked");
+                                        const displayName = profileModalUser.username || getEmailPrefix(profileModalUser.email);
                                         if (confirm(`Block ${displayName}? Communication will be severed.`)) {
                                             const chatId = [user?.uid, profileModalUser.id].sort().join('_');
                                             updateDoc(doc(db, 'private_chats', chatId), { blockedBy: user?.uid });
@@ -875,7 +885,10 @@ const StudyTalks: React.FC = () => {
                             </div>
 
                             <button 
-                                onClick={() => handleReport(profileModalUser)}
+                                onClick={() => {
+                                    console.log("Report Conduct clicked");
+                                    handleReport(profileModalUser);
+                                }}
                                 className="w-full bg-white/2 p-4 rounded-2xl flex items-center justify-center gap-3 font-black text-[9px] uppercase tracking-widest text-white/40 hover:text-red-400 transition-colors"
                             >
                                 <ShieldAlert size={14} /> Report Conduct

@@ -1,0 +1,15 @@
+./client/src/components/StudyTalks.tsx:      alert(`Report submitted for ${targetUser.username || targetUser.email?.split('@')[0] || 'Anonymous'}. Tactical scan initiated.`);
+./client/src/components/StudyTalks.tsx:    const username = currentUserProfile?.username || user.email?.split('@')[0] || 'Anonymous';
+./client/src/components/StudyTalks.tsx:      alert(`Request sent to ${targetUser.username || targetUser.email?.split('@')[0] || 'Anonymous'}`);
+./client/src/components/StudyTalks.tsx:                {selectedUser ? (selectedUser.email?.split('@')[0] || 'Anonymous') : (activeChannel === 'community' ? 'COMMUNITY HUB' : activeChannel === 'requests' ? 'NEURAL REQUESTS' : 'DIRECT STREAM')}
+./client/src/components/StudyTalks.tsx:                                    <p className="text-[10px] font-black text-slate-800 dark:text-white uppercase tracking-tight">{req.fromEmail?.split('@')[0] || 'Anonymous'}</p>
+./client/src/components/StudyTalks.tsx:                                            )}>{u.email?.split('@')[0] || 'Anonymous'}</p>
+./client/src/components/StudyTalks.tsx:                                                {msg.username || msg.userEmail?.split('@')[0] || 'Anonymous'}
+./client/src/components/StudyTalks.tsx:                            <h3 className="text-xl font-black text-white uppercase tracking-tight">{profileModalUser.username || profileModalUser.email?.split('@')[0] || 'Anonymous'}</h3>
+./client/src/components/StudyTalks.tsx:                                        const displayName = profileModalUser.username || profileModalUser.email?.split('@')[0] || 'Anonymous';
+./client/src/pages/SettingsScreen.tsx:          <h3 className="text-xl font-black text-text-main dark:text-white uppercase tracking-tight">{user?.email?.split('@')[0] || 'Learning Pro'}</h3>
+./client/src/store/useAppStore.ts:        const today = new Date().toISOString().split('T')[0];
+./client/src/store/useAppStore.ts:          const yesterdayStr = yesterday.toISOString().split('T')[0];
+./client/src/services/gemini.ts:    const today = new Date().toISOString().split('T')[0];
+./client/src/services/gemini.ts:    const today = new Date().toISOString().split('T')[0];
+./client/src/services/gemini.ts:    const today = new Date().toISOString().split('T')[0];

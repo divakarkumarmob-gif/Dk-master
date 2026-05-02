@@ -72,6 +72,11 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
     }
 
+    // --- Chat Archives ---
+    match /chat_archives/{archiveId} {
+      allow read, delete: if isAdmin();
+    }
+
     // --- Private Chats ---
     match /private_chats/{chatId} {
       function getParticipants() {

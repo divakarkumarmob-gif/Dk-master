@@ -6,7 +6,7 @@ import { useAppStore } from '../store/useAppStore';
 interface DailyTestScreenProps {
     testConfig: {
         id: string;
-        type: 'Minor' | 'Major';
+        type: 'Minor' | 'Major' | 'Custom';
         subject?: string;
         chapter?: string;
     };

@@ -20,7 +20,7 @@ import {
 import { signOut } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { useAppStore } from '../store/useAppStore';
-import { cn } from '../lib/utils';
+import { cn, getEmailPrefix } from '../lib/utils';
 import { geminiService } from '../services/gemini';
 import { AISection } from '../components/AISection';
 import { AIMemorySystem } from '../components/AIMemorySystem';
@@ -91,7 +91,7 @@ const SettingsScreen: React.FC = () => {
           </div>
         </div>
         <div>
-          <h3 className="text-xl font-black text-text-main dark:text-white uppercase tracking-tight">{user?.email?.split('@')[0] || 'Learning Pro'}</h3>
+          <h3 className="text-xl font-black text-text-main dark:text-white uppercase tracking-tight">{getEmailPrefix(user?.email, 'Learning Pro')}</h3>
           <p className="text-[10px] text-text-muted dark:text-slate-400 font-bold uppercase tracking-widest">{user?.email || 'Authenticated User'}</p>
         </div>
         <button onClick={() => setIsEditing(true)} className="px-6 py-2 bg-orange-accent text-white rounded-full text-xs font-black uppercase tracking-widest shadow-md">Edit Profile</button>

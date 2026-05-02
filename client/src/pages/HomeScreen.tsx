@@ -33,6 +33,7 @@ import { VisualDecoder } from '../components/VisualDecoder';
 import { PlannerBot } from '../components/PlannerBot';
 import { ConfidenceMap } from '../components/ConfidenceMap';
 import { ActiveRecallBot } from '../components/ActiveRecallBot';
+import { CustomPracticeCollapsible } from '../components/CustomPracticeCollapsible';
 import { VideoVault } from '../components/VideoVault';
 import { StudyPulse } from '../components/StudyPulse';
 import { SavedCheatSheets } from '../components/SavedCheatSheets';
@@ -42,6 +43,7 @@ import { VideoModal } from '../components/VideoModal';
 import { cn } from '../lib/utils';
 import { differenceInDays, format } from 'date-fns';
 import { geminiService } from '../services/gemini';
+import { gemmaService } from '../services/gemma';
 import { VoiceAI } from '../components/VoiceAI';
 import { FALLBACK_QUOTES } from '../constants/fallbackData';
 import { CollapsibleTool } from '../components/CollapsibleTool';
@@ -198,6 +200,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
             exit={{ opacity: 0, x: 10 }}
             className="space-y-4"
           >
+            <div className="px-1">
+                <PlannerBot />
+            </div>
+
             <div className="px-1 overflow-hidden">
                 <AudioRevision />
             </div>
@@ -252,11 +258,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
                     </div>
                 )}
             </div>
-
-            <div className="px-1">
-                <PlannerBot />
-            </div>
-
+            
             <div className="px-1">
                 <StudyPulse />
             </div>
@@ -281,6 +283,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onStartTest }) => {
                   >
                     <LectureLibrary />
                   </CollapsibleTool>
+
+                  <CustomPracticeCollapsible onStartTest={onStartTest} />
 
                   <CollapsibleTool 
                     title="Neural & AI Tools"
@@ -359,7 +363,7 @@ const ChapterCard: React.FC<{ subject: string, chapter: string, completed: boole
 
   const handlePlay = async () => {
     setIsLoading(true);
-    const result = await geminiService.getYoutubeVideoId(`${chapter} full lecture revision NEET ${subject}`);
+    const result = await gemmaService.getBestYoutubeVideo(`${chapter} full lecture revision NEET ${subject}`);
     if (result && result.id) {
         if (result.blocked) {
             // Channel blocks embed, open YouTube directly
